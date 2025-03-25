@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { TextField, Button, Box, Typography, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode'; // Change to named import
 import api from '../services/api';
 import { useUser } from '../context/UserContext';
+
+interface JwtPayload {
+  id: number;
+  username: string;
+  role: string;
+  subscription: string;
+}
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -15,10 +23,13 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
-      const response = await api.post('/api/auth/register', { username, password });
+      await api.post('/api/auth/register', { username, password });
       const loginResponse = await api.post('/api/auth/login', { username, password });
+      const token = loginResponse.data.token;
+      const decoded: JwtPayload = jwtDecode(token); // Decode the JWT token
       setUser({
-        token: loginResponse.data.token,
+        id: decoded.id, // Extract id from token
+        token: token,
         role: loginResponse.data.role,
         subscription: loginResponse.data.subscription,
       });
