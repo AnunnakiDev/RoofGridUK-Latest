@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
-const { authenticateToken } = require('../middleware/auth');
+const { project } = require('../db');
+const authenticateToken = require('../middleware/auth'); // Revert to direct import
 
 // Get all projects for the authenticated user
 router.get('/', authenticateToken, async (req, res) => {
@@ -9,11 +9,11 @@ router.get('/', authenticateToken, async (req, res) => {
     return res.status(403).json({ message: 'Upgrade to Pro to save and view projects' });
   }
   try {
-    const result = await pool.query(
-      'SELECT * FROM projects WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
-    );
-    res.json(result.rows);
+    const projects = await project.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
+    });
+    res.json(projects);
   } catch (err) {
     console.error('Error fetching projects:', err);
     res.status(500).json({ message: 'Server error' });
@@ -25,13 +25,19 @@ router.post('/', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to save projects' });
   }
-  const { title, input_data, results } = req.body;
+  const { projectName, rafterHeights, widths, settings, verticalResults, horizontalResults, totalResults } = req.body;
   try {
-    const result = await pool.query(
-      'INSERT INTO projects (user_id, title, input_data, results) VALUES ($1, $2, $3, $4) RETURNING *',
-      [req.user.id, title, input_data, results]
-    );
-    res.status(201).json(result.rows[0]);
+    const newProject = await project.create({
+      userId: req.user.id,
+      projectName,
+      rafterHeights,
+      widths,
+      settings,
+      verticalResults,
+      horizontalResults,
+      totalResults,
+    });
+    res.status(201).json(newProject);
   } catch (err) {
     console.error('Error saving project:', err);
     res.status(500).json({ message: 'Server error' });
@@ -45,8 +51,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM projects WHERE id = $1 AND user_id = $2', [id, req.user.id]);
-    if (result.rowCount === 0) {
+    const result = await project.destroy({
+      where: { id, userId: req.user.id },
+    });
+    if (result === 0) {
       return res.status(404).json({ message: 'Project not found' });
     }
     res.json({ message: 'Project deleted successfully' });
@@ -56,7 +64,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Share a project
+// Share a project (requires a SharedProject model)
 router.post('/share', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to share projects' });
@@ -64,27 +72,22 @@ router.post('/share', authenticateToken, async (req, res) => {
   const { projectId } = req.body;
   const shareToken = require('crypto').randomBytes(16).toString('hex');
   try {
-    const result = await pool.query(
-      'INSERT INTO shared_projects (project_id, share_token) VALUES ($1, $2) RETURNING *',
-      [projectId, shareToken]
-    );
-    res.status(201).json({ shareToken: result.rows[0].share_token });
+    // Note: This requires a SharedProject model, which we haven't defined yet
+    // For now, we'll comment this out and address it in the next phase
+    res.status(501).json({ message: 'Sharing functionality not implemented yet' });
   } catch (err) {
     console.error('Error sharing project:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get a shared project
+// Get a shared project (requires a SharedProject model)
 router.get('/shared/:token', async (req, res) => {
   const { token } = req.params;
   try {
-    const shareResult = await pool.query('SELECT project_id FROM shared_projects WHERE share_token = $1', [token]);
-    if (shareResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Shared project not found' });
-    }
-    const projectResult = await pool.query('SELECT * FROM projects WHERE id = $1', [shareResult.rows[0].project_id]);
-    res.json(projectResult.rows[0]);
+    // Note: This requires a SharedProject model, which we haven't defined yet
+    // For now, we'll comment this out and address it in the next phase
+    res.status(501).json({ message: 'Shared project functionality not implemented yet' });
   } catch (err) {
     console.error('Error fetching shared project:', err);
     res.status(500).json({ message: 'Server error' });

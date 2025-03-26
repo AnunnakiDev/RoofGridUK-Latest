@@ -1,23 +1,21 @@
+require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const pool = require('./db');
-const authRoutes = require('./routes/auth');
-const projectRoutes = require('./routes/projects');
-const tileRoutes = require('./routes/tiles');
-const userRoutes = require('./routes/users');
-
-// Middleware
 const app = express();
-app.use(cors());
+const authRoutes = require('./routes/auth');
+const tilesRoutes = require('./routes/tiles');
+const projectsRoutes = require('./routes/projects');
+const userTilesRoutes = require('./routes/userTiles');
+const authenticateToken = require('./middleware/auth'); // Revert to direct import
+
 app.use(express.json());
 
-// Routes
+// Public routes (no authentication required)
 app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/tiles', tileRoutes);
-app.use('/api/users', userRoutes);
+
+// Protected routes (require authentication)
+app.use('/api/tiles', authenticateToken, tilesRoutes);
+app.use('/api/projects', authenticateToken, projectsRoutes);
+app.use('/api/users', authenticateToken, userTilesRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -19,6 +19,9 @@ const Header: React.FC = () => {
           RoofGrid UK
         </Typography>
         <Box>
+          <Button color="inherit" component={Link} to="/calculator">
+            Calculator
+          </Button>
           {user.token ? (
             <>
               <Button color="inherit" component={Link} to="/subscribe">

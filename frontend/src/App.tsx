@@ -6,6 +6,7 @@ import Header from './components/Header';
 import Login from './components/Login';
 import Register from './components/Register';
 import Subscribe from './components/Subscribe';
+import Calculator from './components/Calculator';
 
 const theme = createTheme({
   palette: {
@@ -33,6 +34,7 @@ const App: React.FC = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/subscribe" element={<Subscribe />} />
+            <Route path="/calculator" element={<Calculator />} />
           </Routes>
         </Router>
       </ThemeProvider>

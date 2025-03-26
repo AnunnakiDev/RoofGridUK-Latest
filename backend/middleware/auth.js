@@ -1,28 +1,27 @@
-const jwt = require('jsonwebtoken');
+try {
+  const jwt = require('jsonwebtoken');
+  console.log('jsonwebtoken loaded successfully');
 
-// Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Expecting 'Bearer <token>'
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid token' });
+  const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({ message: 'Access token missing' });
     }
-    req.user = user;
-    next();
-  });
-};
 
-// Middleware to check if user is admin
-const requireAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admins only' });
-  }
-};
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded; // Attach the decoded user info to the request
+      next();
+    } catch (error) {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+  };
 
-module.exports = { authenticateToken, requireAdmin };
+  console.log('middleware/auth.js loaded successfully');
+  module.exports = authenticateToken;
+} catch (error) {
+  console.error('Error in middleware/auth.js:', error);
+  throw error;
+}
