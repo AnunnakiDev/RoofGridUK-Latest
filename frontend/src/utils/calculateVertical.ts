@@ -147,6 +147,10 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
   }
 
   // Step 7: Add warning for gauge constraints
+  if (!solution) {
+    throw new Error('Solution was not computed; this should never happen.');
+  }
+
   if (!warning) {
     const hasInvalidGauge = solution.rafterResults.some(r => {
       if (solution!.type === 'full') return r.cutCourseGauge! < 75;
@@ -159,18 +163,14 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
   }
 
   // Step 8: Verify totals
-  if (!solution) {
-    throw new Error('Solution was not computed; this should never happen.');
-  }
-
   const tolerance = 3;
   const totalWarnings = rafterHeights.map((rafterHeight, index) => {
-    const result = solution.rafterResults[index];
-    const computedTotal = solution.type === 'full'
-      ? firstBatten + result.cutCourseGauge! + result.fullCourses! * maxGauge + result.effectiveRidgeOffset
-      : solution.type === 'split'
-      ? firstBatten + solution.n1! * result.gauge1! + solution.n2! * result.gauge2! + result.effectiveRidgeOffset
-      : firstBatten + (solution.n_spaces - 1) * result.battenGauge! + result.effectiveRidgeOffset;
+    const result = solution!.rafterResults[index];
+    const computedTotal = solution!.type === 'full'
+      ? firstBatten + (result.cutCourseGauge ?? 0) + (result.fullCourses ?? 0) * maxGauge + result.effectiveRidgeOffset
+      : solution!.type === 'split'
+      ? firstBatten + (solution!.n1! * result.gauge1! + solution!.n2! * result.gauge2! + result.effectiveRidgeOffset)
+      : firstBatten + (solution!.n_spaces - 1) * (result.battenGauge ?? 0) + result.effectiveRidgeOffset;
     const difference = Math.abs(rafterHeight - computedTotal);
     if (difference > tolerance) {
       return `Computed total (${computedTotal}mm) for rafter ${index + 1} differs from rafter height (${rafterHeight}mm) by ${difference}mm, exceeding tolerance of ${tolerance}mm.`;
@@ -186,7 +186,7 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
     underEaveBatten: underEaveBattenValue,
     eaveBatten,
     firstBatten,
-    solution,
+    solution: solution!,
     warning,
   };
 };

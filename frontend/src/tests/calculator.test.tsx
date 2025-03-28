@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import Calculator from '../components/Calculator';
+import Calculator from '../pages/Calculator';
 
 describe('Calculator', () => {
   it('renders without crashing', () => {

@@ -1,43 +1,23 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { UserProvider } from './context/UserContext';
-import Header from './components/Header';
-import Login from './components/Login';
-import Register from './components/Register';
-import Subscribe from './components/Subscribe';
-import Calculator from './components/Calculator';
-
-const theme = createTheme({
-  palette: {
-    background: {
-      default: '#ffffff',
-    },
-    primary: {
-      main: '#1b75bc',
-    },
-  },
-  typography: {
-    fontFamily: 'Roboto, sans-serif',
-  },
-});
+import Home from './pages/Home';
+import Calculator from './pages/Calculator';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 const App: React.FC = () => {
   return (
     <UserProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router>
-          <Header />
-          <Routes>
-            <Route path="/" element={<div>Welcome to RoofGrid UK</div>} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/subscribe" element={<Subscribe />} />
-            <Route path="/calculator" element={<Calculator />} />
-          </Routes>
-        </Router>
-      </ThemeProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/calculator" element={<Calculator />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          {/* Add more routes as we implement pages */}
+        </Routes>
+      </Router>
     </UserProvider>
   );
 };
