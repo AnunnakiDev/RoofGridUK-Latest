@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('user', { // Change model name to 'user'
+  const User = sequelize.define('user', {
     username: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -19,6 +19,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'free',
     },
+  }, {
+    tableName: 'user', // Explicitly set the table name
   });
 
   return User;

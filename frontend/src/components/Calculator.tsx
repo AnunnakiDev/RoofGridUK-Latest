@@ -48,10 +48,12 @@ interface Tile {
   maxspacing: number;
   datasheet_link: string | null;
   lhTileWidth: number;
+  isPersonal?: boolean;
 }
 
 interface FormInputs {
   tileSelection: string;
+  tileName: string;
   rafterHeights: number[];
   widths: number[];
   gutterOverhang: number;
@@ -82,6 +84,7 @@ const Calculator: React.FC = () => {
   const [projectName, setProjectName] = useState('');
   const [inputs, setInputs] = useState<FormInputs>({
     tileSelection: '',
+    tileName: '',
     rafterHeights: [0],
     widths: [0],
     gutterOverhang: 50,
@@ -113,13 +116,24 @@ const Calculator: React.FC = () => {
   useEffect(() => {
     const fetchTiles = async () => {
       try {
-        const response = await api.get('/api/tiles');
-        setTiles(response.data); // Axios already parses the JSON, so response.data is the array of tiles
+        const defaultTilesResponse = await api.get('/api/tiles');
+        const defaultTiles = defaultTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: false }));
+        const tilesList = [...defaultTiles];
+
+        // Fetch personal tiles for pro users
+        if (user.subscription === 'pro') {
+          const personalTilesResponse = await api.get('/api/users/tiles');
+          const personalTiles = personalTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: true }));
+          tilesList.push(...personalTiles);
+        }
+
+        setTiles(tilesList);
       } catch (err) {
         console.error('Error fetching tiles:', err);
         setError('Failed to fetch tiles');
       }
     };
+
     if (user.subscription === 'pro') {
       fetchTiles();
     }
@@ -146,6 +160,7 @@ const Calculator: React.FC = () => {
       setInputs({
         ...inputs,
         tileSelection: 'custom',
+        tileName: 'Custom Tile',
         materialType: '',
         slateTileHeight: 0,
         tileCoverWidth: 0,
@@ -161,10 +176,29 @@ const Calculator: React.FC = () => {
       if (tile) {
         setSelectedTile(tile);
         setIsCustomTile(false);
+        let materialType: string;
+        switch (tile.type.toLowerCase()) {
+          case 'slate':
+            materialType = 'Slate';
+            break;
+          case 'fibre-cement-slate':
+            materialType = 'Fibre Cement Slate';
+            break;
+          case 'interlocking-tile':
+          case 'pantile':
+            materialType = 'Tile';
+            break;
+          case 'plain-tile':
+            materialType = 'Plain Tile';
+            break;
+          default:
+            materialType = tile.type;
+        }
         setInputs({
           ...inputs,
           tileSelection: tileId,
-          materialType: tile.type,
+          tileName: tile.name,
+          materialType,
           slateTileHeight: tile.length,
           tileCoverWidth: tile.width,
           minGauge: tile.mingauge,
@@ -200,8 +234,8 @@ const Calculator: React.FC = () => {
 
   const validateStep = (step: number): boolean => {
     const errors: string[] = [];
+
     if (step === 0) {
-      // Step 1: Tile Selection / Tile Data
       if (user.subscription === 'pro' && !inputs.tileSelection) {
         errors.push('Please select a tile.');
       }
@@ -236,8 +270,6 @@ const Calculator: React.FC = () => {
         errors.push('LH Tile Width must be 0 or greater.');
       }
     } else if (step === 1) {
-      // Step 2: Roof Dimensions
-      // Require at least one non-zero rafter height or width
       const hasValidRafter = inputs.rafterHeights.some(h => h > 0);
       const hasValidWidth = inputs.widths.some(w => w > 0);
       if (!hasValidRafter && !hasValidWidth) {
@@ -247,6 +279,7 @@ const Calculator: React.FC = () => {
         errors.push('Gutter overhang must be 0 or greater.');
       }
     }
+
     setStepErrors(errors);
     return errors.length === 0;
   };
@@ -265,7 +298,7 @@ const Calculator: React.FC = () => {
   const calculateRoof = () => {
     setError(null);
     setResults(null);
-  
+
     try {
       const verticalInputs = {
         rafterHeights: inputs.rafterHeights,
@@ -289,23 +322,23 @@ const Calculator: React.FC = () => {
         lhTileWidth: inputs.lhTileWidth,
         crossBonded: inputs.crossBonded,
       };
-  
+
       const verticalResult = calculateVertical(verticalInputs);
       const horizontalResult = calculateHorizontal(horizontalInputs);
-  
+
       const totalCourses = verticalResult.solution.type === 'full'
         ? verticalResult.solution.rafterResults[0].fullCourses! + 1
         : verticalResult.solution.type === 'split'
         ? verticalResult.solution.n_spaces
         : verticalResult.solution.n_spaces;
-  
+
       const tilesPerCourse = horizontalResult.solution.type === 'split'
         ? horizontalResult.tilesWide
         : horizontalResult.tilesWide;
-  
+
       const halfTiles = inputs.crossBonded === 'YES' ? Math.ceil(totalCourses / 2) : 0;
       const totalTiles = tilesPerCourse * totalCourses + halfTiles;
-  
+
       setResults({
         vertical: verticalResult,
         horizontal: horizontalResult,
@@ -313,7 +346,7 @@ const Calculator: React.FC = () => {
         totalTiles,
         halfTiles,
       });
-      setActiveStep(3); // Move to results step
+      setActiveStep(3);
     } catch (err: any) {
       setError(err.message || 'Calculation failed');
     }
@@ -322,6 +355,7 @@ const Calculator: React.FC = () => {
   const handleRecalculate = () => {
     setInputs({
       tileSelection: '',
+      tileName: '',
       rafterHeights: [0],
       widths: [0],
       gutterOverhang: 50,
@@ -355,7 +389,6 @@ const Calculator: React.FC = () => {
       setError('Please enter a project name.');
       return;
     }
-
     try {
       const response = await api.post('/api/projects', {
         projectName,
@@ -379,6 +412,7 @@ const Calculator: React.FC = () => {
       });
       alert('Project saved successfully!');
       setProjectName('');
+      setError(null);
     } catch (err) {
       setError('Failed to save project. Please try again.');
     }
@@ -393,7 +427,6 @@ const Calculator: React.FC = () => {
       <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
         Roofing Calculator
       </Typography>
-
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {steps.map((label) => (
           <Step key={label}>
@@ -401,7 +434,6 @@ const Calculator: React.FC = () => {
           </Step>
         ))}
       </Stepper>
-
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} role="alert" id="calculator-error">
           {error}
@@ -414,7 +446,6 @@ const Calculator: React.FC = () => {
           ))}
         </Alert>
       )}
-
       {/* Step 1: Choose Tile / Tile Data */}
       {activeStep === 0 && (
         <Box sx={{ mb: 4 }}>
@@ -433,14 +464,15 @@ const Calculator: React.FC = () => {
                 >
                   <MenuItem value="">Select a tile</MenuItem>
                   {tiles.map(tile => (
-                    <MenuItem key={tile.id} value={tile.id}>{tile.name}</MenuItem>
+                    <MenuItem key={tile.id} value={tile.id}>
+                      {tile.isPersonal ? `Personal: ${tile.name}` : tile.name}
+                    </MenuItem>
                   ))}
                   <MenuItem value="custom">Custom Tile</MenuItem>
                 </Select>
               </FormControl>
             </>
           )}
-
           <Accordion
             expanded={user.subscription === 'free' || (user.subscription === 'pro' && !!inputs.tileSelection)}
             sx={{ mt: user.subscription === 'pro' ? 2 : 0 }}
@@ -586,7 +618,6 @@ const Calculator: React.FC = () => {
           </Accordion>
         </Box>
       )}
-
       {/* Step 2: Roof Dimensions */}
       {activeStep === 1 && (
         <Box sx={{ mb: 4 }}>
@@ -646,7 +677,6 @@ const Calculator: React.FC = () => {
               </Grid>
             </AccordionDetails>
           </Accordion>
-
           <Accordion
             expanded={horizontalExpanded}
             onChange={(event, expanded) => setHorizontalExpanded(expanded)}
@@ -684,7 +714,6 @@ const Calculator: React.FC = () => {
           </Accordion>
         </Box>
       )}
-
       {/* Step 3: Settings */}
       {activeStep === 2 && (
         <Box sx={{ mb: 4 }}>
@@ -772,7 +801,6 @@ const Calculator: React.FC = () => {
           </Grid>
         </Box>
       )}
-
       {/* Step 4: Results */}
       {activeStep === 3 && (
         <Box>
@@ -792,7 +820,6 @@ const Calculator: React.FC = () => {
               <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
                 Calculation Results
               </Typography>
-
               {/* Summary of Inputs */}
               <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -801,9 +828,18 @@ const Calculator: React.FC = () => {
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
+                  <Typography variant="h6" sx={{ mb: 1, fontWeight: 'medium' }}>
+                    Tile
+                  </Typography>
+                  <Typography variant="body1" sx={{ ml: 2 }}>
+                    Tile Name: {inputs.tileName}
+                  </Typography>
+                  <Typography variant="body1" sx={{ ml: 2 }}>
+                    Material Type: {inputs.materialType}
+                  </Typography>
                   {inputs.rafterHeights.some(h => h > 0) && (
                     <>
-                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 'medium' }}>
+                      <Typography variant="h6" sx={{ mt: 2, mb: 1, fontWeight: 'medium' }}>
                         Vertical Inputs
                       </Typography>
                       {inputs.rafterHeights.map((height, index) => (
@@ -855,7 +891,6 @@ const Calculator: React.FC = () => {
                   )}
                 </AccordionDetails>
               </Accordion>
-
               {/* Vertical Results */}
               {inputs.rafterHeights.some(h => h > 0) && (
                 <Accordion defaultExpanded sx={{ mt: 3 }}>
@@ -884,37 +919,69 @@ const Calculator: React.FC = () => {
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{height} mm</TableCell>
                             ))}
                           </TableRow>
-                          {results.vertical.underEaveBatten > 0 && (
+                          {results!.vertical.underEaveBatten > 0 && (
                             <TableRow>
                               <TableCell sx={{ fontSize: '1.1rem' }}>Under Eave Batten</TableCell>
                               {inputs.rafterHeights.map((_, index) => (
-                                <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results.vertical.underEaveBatten} mm</TableCell>
+                                <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results!.vertical.underEaveBatten} mm</TableCell>
                               ))}
                             </TableRow>
                           )}
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Eave Batten</TableCell>
                             {inputs.rafterHeights.map((_, index) => (
-                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results.vertical.eaveBatten} mm</TableCell>
+                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results!.vertical.eaveBatten} mm</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>1st Batten</TableCell>
                             {inputs.rafterHeights.map((_, index) => (
-                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results.vertical.firstBatten} mm</TableCell>
+                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results!.vertical.firstBatten} mm</TableCell>
                             ))}
                           </TableRow>
-                          {results.vertical.solution.type === 'full' && (
+                          {results!.vertical.solution.type === 'full' && (
+                            <>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: '1.1rem' }}>Gauge</TableCell>
+                                {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                                  <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
+                                    {(results!.vertical.solution.n_spaces - 1)}@{r.battenGauge} mm
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            </>
+                          )}
+                          {results!.vertical.solution.type === 'split' && (
+                            <>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: '1.1rem' }}>Gauge</TableCell>
+                                {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                                  <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
+                                    {results!.vertical.solution.n1}@{r.gauge1} mm
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: '1.1rem' }}>2nd Gauge</TableCell>
+                                {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                                  <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
+                                    {results!.vertical.solution.n2}@{r.gauge2} mm
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            </>
+                          )}
+                          {results!.vertical.solution.type === 'cut' && (
                             <>
                               <TableRow>
                                 <TableCell sx={{ fontSize: '1.1rem' }}>Cut Course Gauge</TableCell>
-                                {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                                {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
                                   <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.cutCourseGauge} mm</TableCell>
                                 ))}
                               </TableRow>
                               <TableRow>
                                 <TableCell sx={{ fontSize: '1.1rem' }}>Gauge</TableCell>
-                                {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                                {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
                                   <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                     {r.fullCourses}@{inputs.maxGauge} mm
                                   </TableCell>
@@ -928,58 +995,28 @@ const Calculator: React.FC = () => {
                               </TableRow>
                             </>
                           )}
-                          {results.vertical.solution.type === 'split' && (
-                            <>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem' }}>Gauge</TableCell>
-                                {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
-                                  <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
-                                    {results.vertical.solution.n1}@{r.gauge1} mm
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem' }}>2nd Gauge</TableCell>
-                                {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
-                                  <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
-                                    {results.vertical.solution.n2}@{r.gauge2} mm
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            </>
-                          )}
-                          {results.vertical.solution.type === 'cut' && (
-                            <TableRow>
-                              <TableCell sx={{ fontSize: '1.1rem' }}>Gauge</TableCell>
-                              {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
-                                <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
-                                  {results.vertical.solution.n_spaces - 1}@{r.battenGauge} mm
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          )}
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Ridge Offset</TableCell>
-                            {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                            {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.effectiveRidgeOffset} mm</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Total</TableCell>
-                            {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => {
-                              const total = results.vertical.solution.type === 'full'
-                                ? results.vertical.firstBatten + r.cutCourseGauge! + r.fullCourses! * inputs.maxGauge + r.effectiveRidgeOffset
-                                : results.vertical.solution.type === 'split'
-                                ? results.vertical.firstBatten + results.vertical.solution.n1! * r.gauge1! + results.vertical.solution.n2! * r.gauge2! + r.effectiveRidgeOffset
-                                : results.vertical.firstBatten + (results.vertical.solution.n_spaces - 1) * r.battenGauge! + r.effectiveRidgeOffset;
+                            {results!.vertical.solution.rafterResults.map((r: RafterResult, index: number) => {
+                              const total = results!.vertical.solution.type === 'full'
+                                ? results!.vertical.firstBatten + (results!.vertical.solution.n_spaces - 1) * r.battenGauge! + r.effectiveRidgeOffset
+                                : results!.vertical.solution.type === 'split'
+                                ? results!.vertical.firstBatten + results!.vertical.solution.n1! * r.gauge1! + results!.vertical.solution.n2! * r.gauge2! + r.effectiveRidgeOffset
+                                : results!.vertical.firstBatten + r.cutCourseGauge! + r.fullCourses! * inputs.maxGauge + r.effectiveRidgeOffset;
                               return <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{total} mm</TableCell>;
                             })}
                           </TableRow>
-                          {results.vertical.warning && (
+                          {results!.vertical.warning && (
                             <TableRow>
                               <TableCell sx={{ color: 'error.main', fontSize: '1.1rem' }}>Warning</TableCell>
                               <TableCell colSpan={inputs.rafterHeights.length} sx={{ color: 'error.main', fontSize: '1.1rem' }}>
-                                {results.vertical.warning}
+                                {results!.vertical.warning}
                               </TableCell>
                             </TableRow>
                           )}
@@ -989,7 +1026,6 @@ const Calculator: React.FC = () => {
                   </AccordionDetails>
                 </Accordion>
               )}
-
               {/* Horizontal Results */}
               {inputs.widths.some(w => w > 0) && (
                 <Accordion defaultExpanded sx={{ mt: 3 }}>
@@ -1020,48 +1056,48 @@ const Calculator: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Final Width</TableCell>
-                            {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                            {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.totalWidth} mm</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Left Verge</TableCell>
-                            {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                            {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.overhangLeft} mm</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Right Verge</TableCell>
-                            {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                            {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.overhangRight} mm</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Total Tiles Wide</TableCell>
-                            {results.horizontal.solution.widthResults.map((_: WidthResult, index: number) => (
-                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results.horizontal.tilesWide}</TableCell>
+                            {results!.horizontal.solution.widthResults.map((_: WidthResult, index: number) => (
+                              <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{results!.horizontal.tilesWide}</TableCell>
                             ))}
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>1st Mark</TableCell>
-                            {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                            {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.firstMark} mm</TableCell>
                             ))}
                           </TableRow>
-                          {results.horizontal.solution.type === 'full' || results.horizontal.solution.type === 'cut' ? (
+                          {results!.horizontal.solution.type === 'full' || results!.horizontal.solution.type === 'cut' ? (
                             <>
                               <TableRow>
                                 <TableCell sx={{ fontSize: '1.1rem' }}>Marks</TableCell>
-                                {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                   <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                     {r.totalSets}@{r.adjustedMarks} mm
                                   </TableCell>
                                 ))}
                               </TableRow>
-                              {results.horizontal.solution.widthResults.some(r => (r.remainingTiles ?? 0) > 0) && (
+                              {results!.horizontal.solution.widthResults.some(r => (r.remainingTiles ?? 0) > 0) && (
                                 <TableRow>
                                   <TableCell sx={{ fontSize: '1.1rem' }}>Remaining Tiles</TableCell>
-                                  {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                  {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                     <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                       {(r.remainingTiles ?? 0) > 0 ? `${r.remainingTiles} at ${inputs.tileCoverWidth + (r.actualSpacing ?? 0)} mm` : ''}
                                     </TableCell>
@@ -1073,16 +1109,16 @@ const Calculator: React.FC = () => {
                             <>
                               <TableRow>
                                 <TableCell sx={{ fontSize: '1.1rem' }}>Marks</TableCell>
-                                {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                   <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                     {r.sets1 ?? 0}@{r.adjustedMarks1 ?? 0} mm
                                   </TableCell>
                                 ))}
                               </TableRow>
-                              {results.horizontal.solution.widthResults.some(r => (r.remainingTiles1 ?? 0) > 0) && (
+                              {results!.horizontal.solution.widthResults.some(r => (r.remainingTiles1 ?? 0) > 0) && (
                                 <TableRow>
                                   <TableCell sx={{ fontSize: '1.1rem' }}>Remaining Tiles 1</TableCell>
-                                  {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                  {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                     <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                       {(r.remainingTiles1 ?? 0) > 0 ? `${r.remainingTiles1} at ${inputs.tileCoverWidth + (r.spacing1 ?? 0)} mm` : ''}
                                     </TableCell>
@@ -1091,16 +1127,16 @@ const Calculator: React.FC = () => {
                               )}
                               <TableRow>
                                 <TableCell sx={{ fontSize: '1.1rem' }}>2nd set of Marks</TableCell>
-                                {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                   <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                     {r.sets2 ?? 0}@{r.adjustedMarks2 ?? 0} mm
                                   </TableCell>
                                 ))}
                               </TableRow>
-                              {results.horizontal.solution.widthResults.some(r => (r.remainingTiles2 ?? 0) > 0) && (
+                              {results!.horizontal.solution.widthResults.some(r => (r.remainingTiles2 ?? 0) > 0) && (
                                 <TableRow>
                                   <TableCell sx={{ fontSize: '1.1rem' }}>Remaining Tiles 2</TableCell>
-                                  {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                                  {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                     <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
                                       {(r.remainingTiles2 ?? 0) > 0 ? `${r.remainingTiles2} at ${inputs.tileCoverWidth + (r.spacing2 ?? 0)} mm` : ''}
                                     </TableCell>
@@ -1109,29 +1145,29 @@ const Calculator: React.FC = () => {
                               )}
                             </>
                           )}
-                          {results.horizontal.solution.type === 'cut' && (
+                          {results!.horizontal.solution.type === 'cut' && (
                             <TableRow>
                               <TableCell sx={{ fontSize: '1.1rem' }}>Cut Size</TableCell>
-                              {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                              {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                                 <TableCell key={index} sx={{ fontSize: '1.1rem' }}>{r.cutTileWidth} mm</TableCell>
                               ))}
                             </TableRow>
                           )}
                           <TableRow>
                             <TableCell sx={{ fontSize: '1.1rem' }}>Tile Spacing</TableCell>
-                            {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                            {results!.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
                               <TableCell key={index} sx={{ fontSize: '1.1rem' }}>
-                                {results.horizontal.solution.type === 'split'
+                                {results!.horizontal.solution.type === 'split'
                                   ? `${r.spacing1 ?? 0} mm / ${r.spacing2 ?? 0} mm`
                                   : `${r.actualSpacing ?? 0} mm`}
                               </TableCell>
                             ))}
                           </TableRow>
-                          {results.horizontal.warning && (
+                          {results!.horizontal.warning && (
                             <TableRow>
                               <TableCell sx={{ color: 'error.main', fontSize: '1.1rem' }}>Warning</TableCell>
                               <TableCell colSpan={inputs.widths.length} sx={{ color: 'error.main', fontSize: '1.1rem' }}>
-                                {results.horizontal.warning}
+                                {results!.horizontal.warning}
                               </TableCell>
                             </TableRow>
                           )}
@@ -1141,7 +1177,6 @@ const Calculator: React.FC = () => {
                   </AccordionDetails>
                 </Accordion>
               )}
-
               {/* Total Results */}
               {inputs.rafterHeights.some(h => h > 0) && inputs.widths.some(w => w > 0) && (
                 <Accordion defaultExpanded sx={{ mt: 3 }}>
@@ -1152,38 +1187,39 @@ const Calculator: React.FC = () => {
                   </AccordionSummary>
                   <AccordionDetails>
                     <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Total Courses: {results.totalCourses}
+                      Total Courses: {results!.totalCourses}
                     </Typography>
                     <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold', color: 'success.main' }}>
-                      Total Tiles Needed: {results.totalTiles}
+                      Total Tiles Needed: {results!.totalTiles}
                     </Typography>
-                    {results.halfTiles > 0 && (
+                    {results!.halfTiles > 0 && (
                       <Typography variant="h6" sx={{ color: 'text.secondary', mb: 2 }}>
-                        Includes {results.halfTiles} half tiles due to cross-bonding
+                        Includes {results!.halfTiles} half tiles due to cross-bonding
                       </Typography>
-                    )}
-                    {user.subscription === 'pro' && (
-                      <Box sx={{ mt: 3 }}>
-                        <TextField
-                          label="Project Name"
-                          value={projectName}
-                          onChange={(e) => setProjectName(e.target.value)}
-                          fullWidth
-                          sx={{ mb: 2 }}
-                          variant="outlined"
-                        />
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={handleSaveResults}
-                          sx={{ py: 1.5, fontSize: '1.2rem' }}
-                        >
-                          Save Results
-                        </Button>
-                      </Box>
                     )}
                   </AccordionDetails>
                 </Accordion>
+              )}
+              {/* Save Results (for Pro Users) */}
+              {user.subscription === 'pro' && results !== null && (
+                <Box sx={{ mt: 3 }}>
+                  <TextField
+                    label="Project Name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                    variant="outlined"
+                  />
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleSaveResults}
+                    sx={{ py: 1.5, fontSize: '1.2rem' }}
+                  >
+                    Save Results
+                  </Button>
+                </Box>
               )}
             </Paper>
           )}
@@ -1207,7 +1243,6 @@ const Calculator: React.FC = () => {
           </Box>
         </Box>
       )}
-
       {/* Navigation Buttons */}
       {activeStep < 3 && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>

@@ -1,8 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const { user, userTile } = require('../db');
-const authenticateToken = require('../middleware/auth'); // Revert to direct import
-const bcrypt = require('bcrypt');
+
+// Load bcryptjs and log any issues
+let bcrypt;
+try {
+  bcrypt = require('bcryptjs');
+  console.log('bcryptjs loaded successfully in userTiles.js');
+} catch (error) {
+  console.error('Error loading bcryptjs in userTiles.js:', error);
+  throw error;
+}
+
+const authenticateToken = require('../middleware/auth');
 
 // Get user profile
 router.get('/me', authenticateToken, async (req, res) => {
@@ -23,7 +33,10 @@ router.put('/me', authenticateToken, async (req, res) => {
   try {
     const updates = {};
     if (username) updates.username = username;
-    if (password) updates.password = await bcrypt.hash(password, 10);
+    if (password) {
+      console.log('Hashing password for user update:', username);
+      updates.password = await bcrypt.hash(password, 10);
+    }
     const updatedUser = await user.update(updates, {
       where: { id: req.user.id },
       returning: true,

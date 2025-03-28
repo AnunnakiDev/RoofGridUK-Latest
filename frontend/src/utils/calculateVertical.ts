@@ -9,19 +9,19 @@ export interface VerticalInputs {
 }
 
 export interface RafterResult {
-  battenGauge?: number; // Single gauge
-  gauge1?: number; // Split gauges
-  gauge2?: number; // Split gauges
-  cutCourseGauge?: number; // Cut course
-  fullCourses?: number; // Full courses
+  battenGauge?: number;
+  gauge1?: number;
+  gauge2?: number;
+  cutCourseGauge?: number;
+  fullCourses?: number;
   effectiveRidgeOffset: number;
 }
 
 export interface VerticalSolution {
   type: 'full' | 'split' | 'cut';
   n_spaces: number;
-  n1?: number; // Split gauges
-  n2?: number; // Split gauges
+  n1?: number;
+  n2?: number;
   rafterResults: RafterResult[];
 }
 
@@ -37,71 +37,82 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
   const { rafterHeights, gutterOverhang, materialType, slateTileHeight, maxGauge, minGauge, useDryRidge } = inputs;
 
   // Step 1: Initialize
-  const eaveTileLength = materialType === 'Slate' ? slateTileHeight : slateTileHeight;
-  const underEaveBatten = materialType === 'Slate' ? 0 : gutterOverhang / 2;
-  const eaveBatten = materialType === 'Slate' ? gutterOverhang : gutterOverhang;
-  const firstBatten = materialType === 'Slate' ? eaveBatten + (eaveTileLength / 2) : eaveBatten + eaveTileLength - 50;
-  const ridgeOffset = useDryRidge === 'YES' ? 25 : 55;
+  const underEaveBatten = materialType === 'Fibre Cement Slate' ? 120 : 0;
+  const eaveBattenAdjustment = materialType === 'Plain Tile' ? 65 : 0;
+  let firstBatten: number;
+  if (materialType === 'Slate' || materialType === 'Fibre Cement Slate') {
+    firstBatten = slateTileHeight - gutterOverhang + 25;
+  } else if (materialType === 'Plain Tile') {
+    firstBatten = slateTileHeight - gutterOverhang - 15;
+  } else {
+    firstBatten = slateTileHeight - gutterOverhang - 25;
+  }
+  const eaveBatten = materialType === 'Plain Tile' ? firstBatten - eaveBattenAdjustment : firstBatten - maxGauge;
+  const underEaveBattenValue = materialType === 'Fibre Cement Slate' ? eaveBatten - 120 : 0;
+  const ridgeOffsetMin = useDryRidge === 'YES' ? 40 : 25;
+  const ridgeOffsetMax = 65;
 
   // Step 2: Calculate remaining length after first batten
-  const remainingLengths = rafterHeights.map(rafterHeight => rafterHeight - firstBatten - ridgeOffset);
+  const remainingLengths = rafterHeights.map(rafterHeight => rafterHeight - firstBatten - ridgeOffsetMin);
 
-  // Step 3: Full tiles with max gauge
+  // Step 3: Min/Max Courses
+  const maxRafterHeight = Math.max(...rafterHeights);
+  const minCourses = Math.ceil((maxRafterHeight - firstBatten - ridgeOffsetMax) / maxGauge) + 1;
+  const maxCourses = Math.min(Math.floor((maxRafterHeight - firstBatten - ridgeOffsetMin) / minGauge) + 1, 50);
+
+  // Step 4: Full tiles with single gauge
   let solution: VerticalSolution | null = null;
   let warning: string | undefined;
 
-  for (let n = 1; n <= Math.max(...remainingLengths) / minGauge; n++) {
-    const gauge = remainingLengths.map(rl => rl / n);
-    const rafterResults = gauge.map(g => ({
-      battenGauge: g,
-      effectiveRidgeOffset: ridgeOffset,
-    }));
-    const isWithinGauge = gauge.every(g => g >= minGauge && g <= maxGauge);
-    if (isWithinGauge) {
-      const isCloseToMax = rafterResults.some(r => Math.abs(r.battenGauge! - maxGauge) <= 1);
-      if (!isCloseToMax) {
-        solution = { type: 'cut', n_spaces: n, rafterResults };
-        break;
-      }
+  for (let n = minCourses; n <= maxCourses; n++) {
+    const rafterResults = rafterHeights.map((rafterHeight) => {
+      const battenGauge = (rafterHeight - firstBatten - ridgeOffsetMin) / (n - 1);
+      const roundedBattenGauge = Math.round(Math.min(Math.max(battenGauge, minGauge), maxGauge));
+      const effectiveRidgeOffset = rafterHeight - (firstBatten + (n - 1) * roundedBattenGauge);
+      return { battenGauge: roundedBattenGauge, effectiveRidgeOffset };
+    });
+    const isWithinRidgeOffset = rafterResults.every(r => r.effectiveRidgeOffset >= ridgeOffsetMin && r.effectiveRidgeOffset <= ridgeOffsetMax);
+    if (isWithinRidgeOffset) {
+      solution = { type: 'full', n_spaces: n, rafterResults };
+      break;
     }
-  }
 
-  // Step 4: Full tiles with max gauge and cut course
-  if (!solution) {
-    for (let n = 1; n <= Math.max(...remainingLengths) / minGauge; n++) {
-      const fullCourses = Math.floor(remainingLengths.map(rl => rl / maxGauge).reduce((a, b) => Math.min(a, b), Infinity));
-      const remainingAfterFull = remainingLengths.map(rl => rl - fullCourses * maxGauge);
-      const cutCourseGauge = remainingAfterFull.map(r => r / n);
-      const rafterResults = cutCourseGauge.map(cg => ({
-        cutCourseGauge: cg,
-        fullCourses,
-        effectiveRidgeOffset: ridgeOffset,
-      }));
-      const isWithinGauge = cutCourseGauge.every(cg => cg >= minGauge && cg <= maxGauge);
-      if (isWithinGauge) {
-        const isCloseToMax = rafterResults.some(r => Math.abs(r.cutCourseGauge! - maxGauge) <= 1);
-        if (!isCloseToMax) {
-          solution = { type: 'full', n_spaces: n, rafterResults };
-          break;
-        }
-      }
+    const rafterResultsMax = rafterHeights.map((r, i) => {
+      const battenGauge = (rafterHeights[i] - firstBatten - ridgeOffsetMax) / (n - 1);
+      const roundedBattenGauge = Math.round(Math.min(Math.max(battenGauge, minGauge), maxGauge));
+      const effectiveRidgeOffset = rafterHeights[i] - (firstBatten + (n - 1) * roundedBattenGauge);
+      return { battenGauge: roundedBattenGauge, effectiveRidgeOffset };
+    });
+    const isWithinRidgeOffsetMax = rafterResultsMax.every(r => r.effectiveRidgeOffset >= ridgeOffsetMin && r.effectiveRidgeOffset <= ridgeOffsetMax);
+    if (isWithinRidgeOffsetMax) {
+      solution = { type: 'full', n_spaces: n, rafterResults: rafterResultsMax };
+      break;
     }
   }
 
   // Step 5: Split gauges
   if (!solution) {
-    for (let n = 2; n <= Math.max(...remainingLengths) / minGauge; n++) {
-      for (let n1 = 1; n1 < n; n1++) {
-        const n2 = n - n1;
-        const gauge1 = remainingLengths.map(rl => rl / n);
-        const gauge2 = remainingLengths.map(rl => (rl - n1 * gauge1[0]) / n2);
-        const rafterResults = gauge1.map((g1, index) => ({
-          gauge1: g1,
-          gauge2: gauge2[index],
-          effectiveRidgeOffset: ridgeOffset,
-        }));
-        const isWithinGauge = gauge1.every(g => g >= minGauge && g <= maxGauge) && gauge2.every(g => g >= minGauge && g <= maxGauge);
-        if (isWithinGauge) {
+    for (let n = minCourses; n <= maxCourses; n++) {
+      for (let n1 = 1; n1 <= n - 2; n1++) {
+        const n2 = (n - 2) - n1;
+        if (n2 <= 0) continue; // Ensure n2 is positive
+        const maxGauge1 = (maxRafterHeight - firstBatten - ridgeOffsetMin - maxGauge) / n1;
+        const maxGauge2 = (maxRafterHeight - firstBatten - ridgeOffsetMin - n1 * maxGauge1) / n2;
+        const roundedMaxGauge1 = Math.round(Math.min(Math.max(maxGauge1, minGauge), maxGauge));
+        const roundedMaxGauge2 = Math.round(Math.min(Math.max(maxGauge2, minGauge), maxGauge));
+
+        const rafterResults = rafterHeights.map((rafterHeight) => {
+          const gauge1 = (rafterHeight - firstBatten - ridgeOffsetMin - maxGauge) / n1;
+          const gauge2 = (rafterHeight - firstBatten - ridgeOffsetMin - n1 * gauge1) / n2;
+          const roundedGauge1 = Math.round(Math.min(Math.max(gauge1, minGauge), maxGauge));
+          const roundedGauge2 = Math.round(Math.min(Math.max(gauge2, minGauge), maxGauge));
+          const remainder = rafterHeight - firstBatten - ridgeOffsetMin - (n1 * roundedGauge1 + n2 * roundedGauge2);
+          const effectiveRidgeOffset = ridgeOffsetMin + remainder;
+          return { gauge1: roundedGauge1, gauge2: roundedGauge2, effectiveRidgeOffset };
+        });
+
+        const isWithinRidgeOffset = rafterResults.every(r => r.effectiveRidgeOffset >= ridgeOffsetMin && r.effectiveRidgeOffset <= ridgeOffsetMax);
+        if (isWithinRidgeOffset) {
           solution = { type: 'split', n_spaces: n, n1, n2, rafterResults };
           break;
         }
@@ -110,24 +121,35 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
     }
   }
 
-  // Step 6: Fallback to cut course if no solution found
+  // Step 6: Cut course
   if (!solution) {
-    const n = Math.ceil(Math.max(...remainingLengths) / maxGauge);
-    const fullCourses = Math.floor(remainingLengths.map(rl => rl / maxGauge).reduce((a, b) => Math.min(a, b), Infinity));
-    const remainingAfterFull = remainingLengths.map(rl => rl - fullCourses * maxGauge);
-    const cutCourseGauge = remainingAfterFull.map(r => r);
-    const rafterResults = cutCourseGauge.map(cg => ({
-      cutCourseGauge: cg,
-      fullCourses,
-      effectiveRidgeOffset: ridgeOffset,
-    }));
-    solution = { type: 'full', n_spaces: n, rafterResults };
+    const fullCourses = Math.floor((maxRafterHeight - firstBatten - ridgeOffsetMin) / maxGauge);
+    const n_spaces = fullCourses + 1;
+    const rafterResults = rafterHeights.map((rafterHeight) => {
+      const cutCourseGauge = rafterHeight - firstBatten - ridgeOffsetMin - fullCourses * maxGauge;
+      const roundedCutCourseGauge = Math.round(cutCourseGauge);
+      const effectiveRidgeOffset = rafterHeight - (firstBatten + roundedCutCourseGauge + fullCourses * maxGauge);
+      return { cutCourseGauge: roundedCutCourseGauge, fullCourses, effectiveRidgeOffset };
+    });
+
+    const isWithinGauge = rafterResults.every(r => r.cutCourseGauge! >= 75 && r.cutCourseGauge! <= maxGauge);
+    if (isWithinGauge) {
+      solution = { type: 'cut', n_spaces, rafterResults };
+    } else {
+      const rafterResultsMax = rafterHeights.map((rafterHeight) => {
+        const cutCourseGauge = rafterHeight - firstBatten - ridgeOffsetMax - fullCourses * maxGauge;
+        const roundedCutCourseGauge = Math.round(cutCourseGauge);
+        const effectiveRidgeOffset = rafterHeight - (firstBatten + roundedCutCourseGauge + fullCourses * maxGauge);
+        return { cutCourseGauge: roundedCutCourseGauge, fullCourses, effectiveRidgeOffset };
+      });
+      solution = { type: 'cut', n_spaces, rafterResults: rafterResultsMax };
+    }
   }
 
   // Step 7: Add warning for gauge constraints
   if (!warning) {
     const hasInvalidGauge = solution.rafterResults.some(r => {
-      if (solution!.type === 'full') return r.cutCourseGauge! < minGauge;
+      if (solution!.type === 'full') return r.cutCourseGauge! < 75;
       if (solution!.type === 'split') return r.gauge1! < minGauge || r.gauge2! < minGauge;
       return r.battenGauge! < minGauge;
     });
@@ -140,9 +162,9 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
   if (!solution) {
     throw new Error('Solution was not computed; this should never happen.');
   }
-  const tolerance = 3; // 2-3mm tolerance
+
+  const tolerance = 3;
   const totalWarnings = rafterHeights.map((rafterHeight, index) => {
-    if (!solution) return null; // This line should never be reached due to the throw above
     const result = solution.rafterResults[index];
     const computedTotal = solution.type === 'full'
       ? firstBatten + result.cutCourseGauge! + result.fullCourses! * maxGauge + result.effectiveRidgeOffset
@@ -161,7 +183,7 @@ export const calculateVertical = (inputs: VerticalInputs): VerticalResult => {
   }
 
   return {
-    underEaveBatten,
+    underEaveBatten: underEaveBattenValue,
     eaveBatten,
     firstBatten,
     solution,

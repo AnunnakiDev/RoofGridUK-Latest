@@ -15,19 +15,16 @@ export interface WidthResult {
   overhangLeft: number;
   overhangRight: number;
   firstMark: number;
-  totalSets?: number; // Made optional since it's not always used
-  adjustedMarks?: number; // Full or cut
-  actualSpacing?: number; // Full or cut
-  remainingTiles?: number; // Full or cut
-  adjustedMarks1?: number; // Split
-  adjustedMarks2?: number; // Split
-  spacing1?: number; // Split
-  spacing2?: number; // Split
-  sets1?: number; // Split
-  sets2?: number; // Split
-  remainingTiles1?: number; // Split
-  remainingTiles2?: number; // Split
-  cutTileWidth?: number; // Cut
+  totalSets?: number;
+  adjustedMarks?: number;
+  actualSpacing?: number;
+  adjustedMarks1?: number;
+  adjustedMarks2?: number;
+  spacing1?: number;
+  spacing2?: number;
+  sets1?: number;
+  sets2?: number;
+  cutTileWidth?: number;
 }
 
 export interface HorizontalSolution {
@@ -42,99 +39,279 @@ export interface HorizontalResult {
 }
 
 export const calculateHorizontal = (inputs: HorizontalInputs): HorizontalResult => {
-  const { widths, tileCoverWidth, minSpacing, maxSpacing, useDryVerge, abutmentSide, useLHTile, lhTileWidth, crossBonded } = inputs;
+  let { widths, tileCoverWidth, minSpacing, maxSpacing, useDryVerge, abutmentSide, useLHTile, lhTileWidth, crossBonded } = inputs;
 
   // Step 1: Initialize
-  const vergeOverhang = useDryVerge === 'YES' ? 60 : 30;
-  const abutmentOverhang = 30;
-  const totalOverhangLeft = abutmentSide === 'LEFT' || abutmentSide === 'BOTH' ? abutmentOverhang : vergeOverhang;
-  const totalOverhangRight = abutmentSide === 'RIGHT' || abutmentSide === 'BOTH' ? abutmentOverhang : vergeOverhang;
-  const effectiveTileWidth = useLHTile === 'YES' ? lhTileWidth : tileCoverWidth;
+  let overhangLeft = useDryVerge === 'YES' ? 40 : 50;
+  let overhangRight = useDryVerge === 'YES' ? 40 : 50;
+  let widthReduction = 0;
 
-  // Step 2: Calculate remaining width after overhangs
-  const remainingWidths = widths.map(width => width - totalOverhangLeft - totalOverhangRight);
+  if (abutmentSide === 'LEFT') {
+    overhangLeft = 0;
+    widthReduction = 5;
+  } else if (abutmentSide === 'RIGHT') {
+    overhangRight = 0;
+    widthReduction = 5;
+  } else if (abutmentSide === 'BOTH') {
+    overhangLeft = 0;
+    overhangRight = 0;
+    widthReduction = 10;
+  }
 
-  // Step 3: Full tiles with spacing between minSpacing and maxSpacing
+  if (abutmentSide !== 'NONE') {
+    inputs = { ...inputs, useDryVerge: 'NO' as 'YES' | 'NO', useLHTile: 'NO' as 'YES' | 'NO' };
+    useDryVerge = 'NO';
+    useLHTile = 'NO';
+  }
+
+  const minOverhang = useDryVerge === 'YES' ? 25 : 40;
+  const maxOverhang = useDryVerge === 'YES' ? 55 : 60;
+
+  // Step 2: Calculate effective width
+  const totalWidths = widths.map(width => width + overhangLeft + overhangRight - widthReduction);
+  const maxWidth = Math.max(...totalWidths);
+
+  // Step 3: Determine common tile count
+  let tilesWide = Math.floor((maxWidth - (useLHTile === 'YES' ? lhTileWidth : 0)) / tileCoverWidth) + (useLHTile === 'YES' ? 1 : 0);
+
+  // Safeguard: Ensure tilesWide is reasonable
+  const maxPossibleTiles = Math.floor(maxWidth / (tileCoverWidth + minSpacing)) + (useLHTile === 'YES' ? 1 : 0);
+  if (tilesWide > maxPossibleTiles) {
+    tilesWide = maxPossibleTiles;
+  }
+
+  // Step 4: Tile placement and adjustments
   let solution: HorizontalSolution | null = null;
-  let tilesWide = 0;
   let warning: string | undefined;
 
-  // Try full tiles first (preferred case)
-  for (let n = 1; n <= Math.max(...remainingWidths) / (effectiveTileWidth + minSpacing); n++) {
-    const spacing = remainingWidths.map(rw => (rw - n * effectiveTileWidth) / (n > 1 ? n - 1 : 1)); // Avoid division by zero
-    const widthResults = spacing.map((s, index) => ({
-      totalWidth: remainingWidths[index] + totalOverhangLeft + totalOverhangRight,
-      overhangLeft: totalOverhangLeft,
-      overhangRight: totalOverhangRight,
-      firstMark: totalOverhangLeft + effectiveTileWidth + (n > 1 ? s : 0), // First mark is just the tile width if n=1
-      totalSets: n > 1 ? n - 1 : 0, // Number of sets (same as remainingTiles)
-      adjustedMarks: n > 1 ? s : undefined, // Only set adjustedMarks if n > 1
-      actualSpacing: n > 1 ? s : 0, // Spacing is 0 if n=1
-      remainingTiles: n > 1 ? n - 1 : 0, // No remaining tiles if n=1
-    }));
-    const isWithinSpacing = spacing.every(s => s >= minSpacing && s <= maxSpacing) || n === 1; // Allow n=1 case
-    if (isWithinSpacing) {
-      tilesWide = n;
-      const isCloseToMax = widthResults.some(r => r.adjustedMarks ? Math.abs(r.adjustedMarks - maxSpacing) <= 1 : false);
-      if (!isCloseToMax || n === 1) {
-        solution = { type: 'full', widthResults };
+  // Full tiles with spacing and overhang adjustments
+  const widthResults = totalWidths.map((totalWidth, index) => {
+    let actualSpacing = maxSpacing;
+    let newOverhangLeft = overhangLeft;
+    let newOverhangRight = overhangRight;
+    let tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * actualSpacing : 0);
+
+    if (tiledWidth > totalWidth) {
+      const excessWidth = tiledWidth - totalWidth;
+      const spacingReduction = excessWidth / (tilesWide > 1 ? tilesWide - 1 : 1);
+      actualSpacing = maxSpacing - spacingReduction;
+      actualSpacing = Math.round(Math.max(actualSpacing, minSpacing));
+      tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * actualSpacing : 0);
+    } else if (tiledWidth < totalWidth) {
+      const remainingWidth = totalWidth - tiledWidth;
+      if (remainingWidth < tileCoverWidth) {
+        if (useDryVerge === 'YES') {
+          const reductionPerSide = Math.min(remainingWidth / 2, 15);
+          newOverhangLeft -= reductionPerSide;
+          newOverhangRight -= reductionPerSide;
+          newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+          newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+          totalWidth -= 2 * reductionPerSide;
+        } else {
+          const overhangAdjustment = remainingWidth / 2;
+          newOverhangLeft += overhangAdjustment;
+          newOverhangRight += overhangAdjustment;
+          newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+          newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+          totalWidth = tiledWidth;
+        }
+      }
+    }
+
+    const firstMark = useLHTile === 'YES'
+      ? lhTileWidth + tileCoverWidth + actualSpacing
+      : crossBonded === 'YES'
+      ? (tileCoverWidth / 2) + actualSpacing
+      : tileCoverWidth + actualSpacing;
+
+    return {
+      totalWidth,
+      overhangLeft: newOverhangLeft,
+      overhangRight: newOverhangRight,
+      firstMark: Math.round(firstMark),
+      actualSpacing,
+    };
+  });
+
+  const isWithinTolerance = widthResults.every((r, i) => {
+    const tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * r.actualSpacing! : 0);
+    return Math.abs(tiledWidth - r.totalWidth) <= 3; // Allow 3mm tolerance
+  });
+
+  if (isWithinTolerance) {
+    solution = { type: 'full', widthResults };
+  }
+
+  // Step 5: Split sets
+  if (!solution) {
+    for (let n1 = 1; n1 <= tilesWide - 2; n1++) {
+      const n2 = (tilesWide - 1) - n1;
+      if (n2 <= 0) continue;
+      const widthResultsSplit = totalWidths.map((totalWidth, index) => {
+        let spacing1 = maxSpacing;
+        let spacing2 = (totalWidth - ((tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + n1 * spacing1)) / n2;
+        spacing2 = Math.round(Math.min(Math.max(spacing2, minSpacing), maxSpacing));
+        // Balance spacings to be more practical
+        if (spacing2 < (minSpacing + maxSpacing) / 2) {
+          const totalSpacing = (totalWidth - ((tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0))) / (tilesWide - 1);
+          spacing1 = Math.round(Math.min(Math.max(totalSpacing, minSpacing), maxSpacing));
+          spacing2 = spacing1;
+        }
+        const tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + n1 * spacing1 + n2 * spacing2;
+
+        let newOverhangLeft = overhangLeft;
+        let newOverhangRight = overhangRight;
+        if (Math.abs(tiledWidth - totalWidth) > 3) {
+          const remainingWidth = totalWidth - tiledWidth;
+          if (useDryVerge === 'YES') {
+            const reductionPerSide = Math.min(remainingWidth / 2, 15);
+            newOverhangLeft -= reductionPerSide;
+            newOverhangRight -= reductionPerSide;
+            newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+            newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+            totalWidth -= 2 * reductionPerSide;
+          } else {
+            const overhangAdjustment = remainingWidth / 2;
+            newOverhangLeft += overhangAdjustment;
+            newOverhangRight += overhangAdjustment;
+            newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+            newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+            totalWidth = tiledWidth;
+          }
+        }
+
+        const firstMark = useLHTile === 'YES'
+          ? lhTileWidth + tileCoverWidth + spacing1
+          : crossBonded === 'YES'
+          ? (tileCoverWidth / 2) + spacing1
+          : tileCoverWidth + spacing1;
+
+        return {
+          totalWidth,
+          overhangLeft: newOverhangLeft,
+          overhangRight: newOverhangRight,
+          firstMark: Math.round(firstMark),
+          spacing1,
+          spacing2,
+          sets1: n1,
+          sets2: n2,
+        };
+      });
+
+      const isWithinToleranceSplit = widthResultsSplit.every((r, i) => {
+        const tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + r.sets1! * r.spacing1! + r.sets2! * r.spacing2!;
+        return Math.abs(tiledWidth - r.totalWidth) <= 3;
+      });
+
+      if (isWithinToleranceSplit) {
+        solution = { type: 'split', widthResults: widthResultsSplit };
         break;
       }
     }
   }
 
-  // Step 4: Split marks (if full tiles don't work)
+  // Step 6: Cut tile
   if (!solution) {
-    for (let n = 2; n <= Math.max(...remainingWidths) / (effectiveTileWidth + minSpacing); n++) {
-      for (let n1 = 1; n1 < n; n1++) {
-        const n2 = n - n1;
-        const spacing1 = remainingWidths.map(rw => (rw - n * effectiveTileWidth) / (n - 1));
-        const spacing2 = remainingWidths.map(rw => (rw - n1 * (effectiveTileWidth + spacing1[0])) / n2);
-        const widthResults = spacing1.map((s1, index) => ({
-          totalWidth: remainingWidths[index] + totalOverhangLeft + totalOverhangRight,
-          overhangLeft: totalOverhangLeft,
-          overhangRight: totalOverhangRight,
-          firstMark: totalOverhangLeft + effectiveTileWidth + s1,
-          totalSets: n - 1, // Total sets for split case
-          adjustedMarks1: s1,
-          adjustedMarks2: spacing2[index],
-          spacing1: s1,
-          spacing2: spacing2[index],
-          sets1: n1,
-          sets2: n2,
-        }));
-        const isWithinSpacing = spacing1.every(s => s >= minSpacing && s <= maxSpacing) && spacing2.every(s => s >= minSpacing && s <= maxSpacing);
-        if (isWithinSpacing) {
-          tilesWide = n;
-          solution = { type: 'split', widthResults };
-          break;
-        }
-      }
-      if (solution) break;
+    const maxTotalWidth = Math.max(...totalWidths);
+    let actualSpacing = maxSpacing;
+    let tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * actualSpacing : 0);
+
+    if (tiledWidth > maxTotalWidth) {
+      const excessWidth = tiledWidth - maxTotalWidth;
+      const spacingReduction = excessWidth / (tilesWide > 1 ? tilesWide - 1 : 1);
+      actualSpacing = maxSpacing - spacingReduction;
+      actualSpacing = Math.round(Math.max(actualSpacing, minSpacing));
+      tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * actualSpacing : 0);
     }
+
+    let cutTileWidth = maxTotalWidth - (tilesWide > 1 ? (tilesWide - 1) * (tileCoverWidth + actualSpacing) : 0) - (useLHTile === 'YES' ? lhTileWidth : tileCoverWidth);
+    if (cutTileWidth < tileCoverWidth / 2 && cutTileWidth < 100) {
+      const targetCutWidth = Math.max(tileCoverWidth / 2, 100);
+      const targetTiledWidth = maxTotalWidth - targetCutWidth;
+      const totalSpacing = (targetTiledWidth - ((tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0))) / (tilesWide > 1 ? tilesWide - 1 : 1);
+      actualSpacing = Math.round(Math.min(Math.max(totalSpacing, minSpacing), maxSpacing));
+      tiledWidth = (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * actualSpacing : 0);
+      cutTileWidth = maxTotalWidth - tiledWidth;
+    }
+    cutTileWidth = Math.round(cutTileWidth);
+
+    const widthResultsCut = totalWidths.map((totalWidth, index) => {
+      const tiledWidth = (tilesWide > 1 ? (tilesWide - 1) * (tileCoverWidth + actualSpacing) : 0) + (useLHTile === 'YES' ? lhTileWidth : tileCoverWidth) + cutTileWidth;
+      const remainingWidth = totalWidth - tiledWidth;
+      let newOverhangLeft = overhangLeft;
+      let newOverhangRight = overhangRight;
+
+      if (useDryVerge === 'YES') {
+        const reductionPerSide = Math.min(remainingWidth / 2, 15);
+        newOverhangLeft -= reductionPerSide;
+        newOverhangRight -= reductionPerSide;
+        newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+        newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+        totalWidth -= 2 * reductionPerSide;
+      } else {
+        const overhangAdjustment = remainingWidth / 2;
+        newOverhangLeft += overhangAdjustment;
+        newOverhangRight += overhangAdjustment;
+        newOverhangLeft = Math.round(Math.min(Math.max(newOverhangLeft, minOverhang), maxOverhang));
+        newOverhangRight = Math.round(Math.min(Math.max(newOverhangRight, minOverhang), maxOverhang));
+        totalWidth = tiledWidth;
+      }
+
+      const firstMark = useLHTile === 'YES'
+        ? lhTileWidth + tileCoverWidth + actualSpacing
+        : crossBonded === 'YES'
+        ? (tileCoverWidth / 2) + actualSpacing
+        : tileCoverWidth + actualSpacing;
+
+      return {
+        totalWidth,
+        overhangLeft: newOverhangLeft,
+        overhangRight: newOverhangRight,
+        firstMark: Math.round(firstMark),
+        actualSpacing,
+        cutTileWidth,
+      };
+    });
+
+    solution = { type: 'cut', widthResults: widthResultsCut };
   }
 
-  // Step 5: Cut tiles (last resort)
-  if (!solution) {
-    const n = Math.ceil(Math.max(...remainingWidths) / (effectiveTileWidth + maxSpacing));
-    const spacing = remainingWidths.map(rw => (rw - n * effectiveTileWidth) / (n > 1 ? n - 1 : 1)); // Avoid division by zero
-    const cutTileWidth = remainingWidths.map(rw => rw - (n > 1 ? (n - 1) * (effectiveTileWidth + spacing[0]) : effectiveTileWidth));
-    const widthResults = spacing.map((s, index) => ({
-      totalWidth: remainingWidths[index] + totalOverhangLeft + totalOverhangRight,
-      overhangLeft: totalOverhangLeft,
-      overhangRight: totalOverhangRight,
-      firstMark: totalOverhangLeft + (cutTileWidth[index] || effectiveTileWidth) + (n > 1 ? s : 0),
-      totalSets: n > 1 ? n - 1 : 0, // Number of sets (same as remainingTiles)
-      adjustedMarks: n > 1 ? s : undefined,
-      actualSpacing: n > 1 ? s : 0,
-      remainingTiles: n > 1 ? n - 1 : 0,
-      cutTileWidth: cutTileWidth[index],
-    }));
-    tilesWide = n;
-    solution = { type: 'cut', widthResults };
-  }
+  // Step 7: Marks and sets
+  const widthResultsWithMarks = solution!.widthResults.map((result) => {
+    const setSize = tileCoverWidth > 300 ? 2 : 3;
+    if (solution!.type === 'split') {
+      const sets1 = Math.floor(result.sets1! / setSize);
+      const sets2 = Math.floor(result.sets2! / setSize);
+      const baseIncrementMarks1 = setSize * (tileCoverWidth + result.spacing1!);
+      const baseIncrementMarks2 = setSize * (tileCoverWidth + result.spacing2!);
+      const minMarks = setSize * (tileCoverWidth + minSpacing);
+      const maxMarks = setSize * (tileCoverWidth + maxSpacing);
+      const adjustedMarks1 = Math.round(Math.min(Math.max(baseIncrementMarks1, minMarks), maxMarks));
+      const adjustedMarks2 = Math.round(Math.min(Math.max(baseIncrementMarks2, minMarks), maxMarks));
+      return {
+        ...result,
+        sets1,
+        sets2,
+        adjustedMarks1,
+        adjustedMarks2,
+      };
+    } else {
+      const totalSets = tilesWide > 1 ? Math.floor((tilesWide - 1) / setSize) : 0;
+      const baseIncrementMarks = setSize * (tileCoverWidth + result.actualSpacing!);
+      const minMarks = setSize * (tileCoverWidth + minSpacing);
+      const maxMarks = setSize * (tileCoverWidth + maxSpacing);
+      const adjustedMarks = Math.round(Math.min(Math.max(baseIncrementMarks, minMarks), maxMarks));
+      return {
+        ...result,
+        totalSets,
+        adjustedMarks,
+      };
+    }
+  });
 
-  // Step 6: Add warning for spacing constraints
+  solution = { ...solution!, widthResults: widthResultsWithMarks };
+
+  // Step 8: Add warning for spacing constraints
   if (!warning) {
     const hasInvalidSpacing = solution!.widthResults.some(r => {
       if (solution!.type === 'split') return (r.spacing1! < minSpacing || r.spacing1! > maxSpacing) || (r.spacing2! < minSpacing || r.spacing2! > maxSpacing);
@@ -145,16 +322,17 @@ export const calculateHorizontal = (inputs: HorizontalInputs): HorizontalResult 
     }
   }
 
-  // Step 7: Verify totals
+  // Step 9: Verify totals
   if (!solution) {
     throw new Error('Solution was not computed; this should never happen.');
   }
-  const tolerance = 3; // 2-3mm tolerance
+
+  const tolerance = 3;
   const totalWarnings = widths.map((width, index) => {
     const result = solution!.widthResults[index];
     const computedTotal = solution!.type === 'split'
-      ? result.overhangLeft + (result.sets1! * (effectiveTileWidth + result.spacing1!) + result.sets2! * (effectiveTileWidth + result.spacing2!)) + result.overhangRight
-      : result.overhangLeft + (result.cutTileWidth ? result.cutTileWidth + (tilesWide > 1 ? (tilesWide - 1) * (effectiveTileWidth + result.actualSpacing!) : 0) : tilesWide * effectiveTileWidth + (tilesWide > 1 ? (tilesWide - 1) * result.actualSpacing! : 0)) + result.overhangRight;
+      ? result.overhangLeft + (result.sets1! * (tileCoverWidth + result.spacing1!) + result.sets2! * (tileCoverWidth + result.spacing2!)) + result.overhangRight
+      : result.overhangLeft + (result.cutTileWidth ? result.cutTileWidth + (tilesWide > 1 ? (tilesWide - 1) * (tileCoverWidth + result.actualSpacing!) : 0) : (tilesWide - (useLHTile === 'YES' ? 1 : 0)) * tileCoverWidth + (useLHTile === 'YES' ? lhTileWidth : 0) + (tilesWide > 1 ? (tilesWide - 1) * result.actualSpacing! : 0)) + result.overhangRight;
     const difference = Math.abs(width - computedTotal);
     if (difference > tolerance) {
       return `Computed total (${computedTotal}mm) for width ${index + 1} differs from width (${width}mm) by ${difference}mm, exceeding tolerance of ${tolerance}mm.`;
@@ -168,7 +346,7 @@ export const calculateHorizontal = (inputs: HorizontalInputs): HorizontalResult 
 
   return {
     tilesWide,
-    solution,
+    solution: solution!,
     warning,
   };
 };

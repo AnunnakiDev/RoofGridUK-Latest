@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-    const project = sequelize.define('project', {
+    const Project = sequelize.define('project', {
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -32,11 +32,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSON,
         allowNull: true,
       },
+    }, {
+      tableName: 'project', // Explicitly set the table name
     });
   
-    project.associate = (models) => {
-      project.belongsTo(models.user, { foreignKey: 'userId' }); // Already lowercase 'user'
+    Project.associate = (models) => {
+      Project.belongsTo(models.user, { foreignKey: 'userId' });
     };
   
-    return project;
+    return Project;
   };

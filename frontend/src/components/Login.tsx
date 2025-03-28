@@ -25,9 +25,9 @@ const Login: React.FC = () => {
     try {
       const response = await api.post('/api/auth/login', { username, password });
       const token = response.data.token;
-      const decoded: JwtPayload = jwtDecode(token); // Decode the JWT token
+      const decoded: JwtPayload = jwtDecode(token);
       setUser({
-        id: decoded.id, // Extract id from token
+        id: decoded.id,
         token: token,
         role: response.data.role,
         subscription: response.data.subscription,

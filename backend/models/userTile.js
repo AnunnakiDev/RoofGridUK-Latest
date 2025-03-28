@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const userTile = sequelize.define('userTile', {
+  const UserTile = sequelize.define('userTile', {
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -52,11 +52,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+  }, {
+    tableName: 'userTile', // Explicitly set the table name
   });
 
-  userTile.associate = (models) => {
-    userTile.belongsTo(models.user, { foreignKey: 'userId' }); // Already lowercase 'user'
+  UserTile.associate = (models) => {
+    UserTile.belongsTo(models.user, { foreignKey: 'userId' });
   };
 
-  return userTile;
+  return UserTile;
 };

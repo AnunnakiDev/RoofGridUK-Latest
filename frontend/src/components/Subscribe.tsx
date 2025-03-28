@@ -9,6 +9,7 @@ const Subscribe: React.FC = () => {
   const { user, setUser } = useUser();
 
   const handleSubscribe = async () => {
+    console.log('User before subscription:', user); // Add debugging log
     if (!user.token) {
       setError('You must be logged in to subscribe.');
       return;
@@ -21,6 +22,7 @@ const Subscribe: React.FC = () => {
         ...user,
         subscription: response.data.subscription,
       });
+      console.log('User after subscription:', { ...user, subscription: response.data.subscription }); // Add debugging log
       setSuccess('Successfully upgraded to Pro!');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Subscription failed');

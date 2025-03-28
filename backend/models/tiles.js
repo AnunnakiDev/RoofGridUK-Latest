@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const Tile = sequelize.define('tile', { // Change model name to 'tile'
+  const Tile = sequelize.define('tile', {
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -53,6 +53,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: 0,
     },
+  }, {
+    tableName: 'tile', // Explicitly set the table name
   });
 
   return Tile;
