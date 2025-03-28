@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import api from '../services/api';
 import { useUser } from '../context/UserContext';
-import Navbar from '../components/Navbar'; // Import Navbar
-import Footer from '../components/Footer'; // Import Footer
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 interface JwtPayload {
   id: number;
@@ -43,7 +43,16 @@ const Login: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <Box sx={{ flexGrow: 1, maxWidth: 400, mx: 'auto', mt: 4, p: 2 }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          maxWidth: 400,
+          mx: 'auto',
+          pt: { xs: '64px', md: '80px' }, // Adjust for Navbar height + safe area
+          pb: { xs: '80px', md: '100px' }, // Adjust for Footer height + safe area
+          p: 2,
+        }}
+      >
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
           Login
         </Typography>

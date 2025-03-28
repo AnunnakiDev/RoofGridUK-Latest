@@ -35,6 +35,7 @@ const Navbar: React.FC = () => {
 
   const userItems = user.id
     ? [
+        { label: 'Saved Projects', path: '/saved-projects' }, // Added Saved Projects link
         { label: 'Profile', path: '/profile' },
         { label: 'Logout', action: handleLogout },
       ]
@@ -45,12 +46,14 @@ const Navbar: React.FC = () => {
 
   return (
     <AppBar
-      position="fixed" // Changed to fixed
+      position="fixed"
       sx={{
         bgcolor: '#1b75bc',
         top: 0,
+        left: 0,
+        right: 0,
         zIndex: 1100,
-        paddingTop: 'env(safe-area-inset-top)', // Handle iPhone/Safari top inset
+        paddingTop: 'env(safe-area-inset-top)',
       }}
     >
       <Toolbar>

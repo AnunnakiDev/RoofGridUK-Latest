@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Added useLocation
 import {
   Box,
   TextField,
@@ -7,7 +7,9 @@ import {
   Typography,
   Grid,
   Paper,
+  Autocomplete,
   Select,
+  SelectChangeEvent,
   MenuItem,
   FormControl,
   InputLabel,
@@ -76,13 +78,38 @@ interface FormInputs {
   crossBonded: 'YES' | 'NO';
 }
 
+interface Project {
+  id: number;
+  projectName: string;
+  createdAt: string;
+  rafterHeights: number[];
+  widths: number[];
+  settings: {
+    useDryRidge: 'YES' | 'NO';
+    leftVergeType: 'Wet' | 'Dry' | 'Abutment';
+    rightVergeType: 'Wet' | 'Dry' | 'Abutment';
+    useLHTile: 'YES' | 'NO';
+    lhTileWidth: number;
+    gutterOverhang: number;
+  };
+  verticalResults: any;
+  horizontalResults: any;
+  totalResults: {
+    totalCourses: number;
+    totalTiles: number;
+    halfTiles: number;
+  } | null;
+}
+
 const Calculator: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
+  const location = useLocation(); // Added to access passed state
   const [activeStep, setActiveStep] = useState(0);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
   const [isCustomTile, setIsCustomTile] = useState(false);
+  const [isTileDataExpanded, setIsTileDataExpanded] = useState(false);
   const [verticalExpanded, setVerticalExpanded] = useState(false);
   const [horizontalExpanded, setHorizontalExpanded] = useState(false);
   const [projectName, setProjectName] = useState('');
@@ -118,7 +145,34 @@ const Calculator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [stepErrors, setStepErrors] = useState<string[]>([]);
 
-  // Fetch tiles for pro users
+  // Pre-fill form with project data if passed via state
+  useEffect(() => {
+    if (location.state && (location.state as { project: Project }).project) {
+      const { project } = location.state as { project: Project };
+      setProjectName(project.projectName);
+      setInputs({
+        ...inputs,
+        rafterHeights: project.rafterHeights,
+        widths: project.widths,
+        gutterOverhang: project.settings.gutterOverhang,
+        useDryRidge: project.settings.useDryRidge,
+        leftVergeType: project.settings.leftVergeType,
+        rightVergeType: project.settings.rightVergeType,
+        useLHTile: project.settings.useLHTile,
+        lhTileWidth: project.settings.lhTileWidth,
+      });
+      setResults({
+        vertical: project.verticalResults,
+        horizontal: project.horizontalResults,
+        totalCourses: project.totalResults?.totalCourses || 0,
+        totalTiles: project.totalResults?.totalTiles || 0,
+        halfTiles: project.totalResults?.halfTiles || 0,
+      });
+      setActiveStep(3); // Navigate to Results step
+    }
+  }, [location.state]);
+
+  // Fetch tiles for pro users and sort them
   useEffect(() => {
     const fetchTiles = async () => {
       try {
@@ -126,11 +180,23 @@ const Calculator: React.FC = () => {
         const defaultTiles = defaultTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: false }));
         const tilesList = [...defaultTiles];
 
+        // Fetch personal tiles for pro users
         if (user.subscription === 'pro') {
           const personalTilesResponse = await api.get('/api/users/tiles');
           const personalTiles = personalTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: true }));
           tilesList.push(...personalTiles);
         }
+
+        // Sort tiles by type and then by name
+        tilesList.sort((a: Tile, b: Tile) => {
+          const typeA = a.type.toLowerCase();
+          const typeB = b.type.toLowerCase();
+          if (typeA < typeB) return -1;
+          if (typeA > typeB) return 1;
+          const nameA = a.name.toLowerCase();
+          const nameB = b.name.toLowerCase();
+          return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+        });
 
         setTiles(tilesList);
       } catch (err) {
@@ -158,8 +224,8 @@ const Calculator: React.FC = () => {
     }
   }, [inputs.widths]);
 
-  const handleTileSelect = (tileId: string) => {
-    if (tileId === 'custom') {
+  const handleTileSelect = (event: React.SyntheticEvent, value: Tile | null) => {
+    if (!value) {
       setIsCustomTile(true);
       setSelectedTile(null);
       setInputs({
@@ -177,43 +243,40 @@ const Calculator: React.FC = () => {
         crossBonded: 'NO',
       });
     } else {
-      const tile = tiles.find(t => t.id === Number(tileId));
-      if (tile) {
-        setSelectedTile(tile);
-        setIsCustomTile(false);
-        let materialType: string;
-        switch (tile.type.toLowerCase()) {
-          case 'slate':
-            materialType = 'Slate';
-            break;
-          case 'fibre-cement-slate':
-            materialType = 'Fibre Cement Slate';
-            break;
-          case 'interlocking-tile':
-          case 'pantile':
-            materialType = 'Tile';
-            break;
-          case 'plain-tile':
-            materialType = 'Plain Tile';
-            break;
-          default:
-            materialType = tile.type;
-        }
-        setInputs({
-          ...inputs,
-          tileSelection: tileId,
-          tileName: tile.name,
-          materialType,
-          slateTileHeight: tile.length,
-          tileCoverWidth: tile.width,
-          minGauge: tile.mingauge,
-          maxGauge: tile.maxgauge,
-          minSpacing: tile.minspacing,
-          maxSpacing: tile.maxspacing,
-          lhTileWidth: tile.lhTileWidth || 0,
-          crossBonded: tile.crossbonded as 'YES' | 'NO',
-        });
+      setSelectedTile(value);
+      setIsCustomTile(false);
+      let materialType: string;
+      switch (value.type.toLowerCase()) {
+        case 'slate':
+          materialType = 'Slate';
+          break;
+        case 'fibre-cement-slate':
+          materialType = 'Fibre Cement Slate';
+          break;
+        case 'interlocking-tile':
+        case 'pantile':
+          materialType = 'Tile';
+          break;
+        case 'plain-tile':
+          materialType = 'Plain Tile';
+          break;
+        default:
+          materialType = value.type;
       }
+      setInputs({
+        ...inputs,
+        tileSelection: value.id.toString(),
+        tileName: value.name,
+        materialType,
+        slateTileHeight: value.length,
+        tileCoverWidth: value.width,
+        minGauge: value.mingauge,
+        maxGauge: value.maxgauge,
+        minSpacing: value.minspacing,
+        maxSpacing: value.maxspacing,
+        lhTileWidth: value.lhTileWidth || 0,
+        crossBonded: value.crossbonded as 'YES' | 'NO',
+      });
     }
   };
 
@@ -402,6 +465,7 @@ const Calculator: React.FC = () => {
     });
     setSelectedTile(null);
     setIsCustomTile(false);
+    setIsTileDataExpanded(false);
     setVerticalExpanded(false);
     setHorizontalExpanded(false);
     setResults(null);
@@ -445,6 +509,47 @@ const Calculator: React.FC = () => {
     }
   };
 
+  const handleSaveCustomTile = async () => {
+    if (user.subscription !== 'pro') return;
+
+    try {
+      const response = await api.post('/api/users/tiles', {
+        name: inputs.tileName,
+        type: inputs.materialType,
+        length: inputs.slateTileHeight,
+        width: inputs.tileCoverWidth,
+        mingauge: inputs.minGauge,
+        maxgauge: inputs.maxGauge,
+        minspacing: inputs.minSpacing,
+        maxspacing: inputs.maxSpacing,
+        lhTileWidth: inputs.lhTileWidth,
+        crossbonded: inputs.crossBonded,
+      });
+      const newTile = { ...response.data, isPersonal: true };
+      setTiles((prevTiles) => {
+        const updatedTiles = [...prevTiles, newTile];
+        updatedTiles.sort((a: Tile, b: Tile) => {
+          const typeA = a.type.toLowerCase();
+          const typeB = b.type.toLowerCase();
+          if (typeA < typeB) return -1;
+          if (typeA > typeB) return 1;
+          const nameA = a.name.toLowerCase();
+          const nameB = b.name.toLowerCase();
+          return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+        });
+        return updatedTiles;
+      });
+      setSelectedTile(newTile);
+      setInputs((prevInputs) => ({
+        ...prevInputs,
+        tileSelection: newTile.id.toString(),
+      }));
+      alert('Custom tile saved successfully!');
+    } catch (err) {
+      setError('Failed to save custom tile. Please try again.');
+    }
+  };
+
   const steps = user.subscription === 'pro'
     ? ['Choose Tile', 'Roof Dimensions', 'Settings', 'Results']
     : ['Tile Data', 'Roof Dimensions', 'Settings', 'Results'];
@@ -455,15 +560,18 @@ const Calculator: React.FC = () => {
       <Box
         sx={{
           flexGrow: 1,
-          pt: { xs: 10, sm: 12 }, // Add padding-top to account for fixed Navbar
-          pb: { xs: 10, sm: 12 }, // Add padding-bottom to account for fixed Footer
-          px: { xs: 2, sm: 3 }, // Restore original padding
+          maxWidth: 900,
+          mx: 'auto',
+          p: { xs: 2, sm: 3 },
+          pt: { xs: '64px', md: '80px' },
+          pb: { xs: '120px', md: '140px' },
+          minHeight: 'calc(100vh - 128px)',
         }}
       >
         <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
           Roofing Calculator
         </Typography>
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+        <Stepper activeStep={activeStep} sx={{ mb: 4, flexWrap: 'wrap' }}>
           {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -490,32 +598,32 @@ const Calculator: React.FC = () => {
                 <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary' }}>
                   Choose Tile
                 </Typography>
-                <FormControl fullWidth>
-                  <InputLabel id="tile-select-label">Select Tile</InputLabel>
-                  <Select
-                    labelId="tile-select-label"
-                    value={inputs.tileSelection}
-                    label="Select Tile"
-                    onChange={(e) => handleTileSelect(e.target.value as string)}
-                  >
-                    <MenuItem value="">Select a tile</MenuItem>
-                    {tiles.map(tile => (
-                      <MenuItem key={tile.id} value={tile.id}>
-                        {tile.isPersonal ? `Personal: ${tile.name}` : tile.name}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="custom">Custom Tile</MenuItem>
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  options={tiles}
+                  getOptionLabel={(option) => (option.isPersonal ? `Personal: ${option.name}` : option.name)}
+                  groupBy={(option) => option.type}
+                  value={selectedTile}
+                  onChange={handleTileSelect}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Select Tile" variant="outlined" fullWidth />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      {option.isPersonal ? `Personal: ${option.name}` : option.name}
+                    </li>
+                  )}
+                  sx={{ mb: 2 }}
+                />
               </>
             )}
             <Accordion
-              expanded={user.subscription === 'free' || (user.subscription === 'pro' && !!inputs.tileSelection)}
+              expanded={isTileDataExpanded}
+              onChange={(event, expanded) => setIsTileDataExpanded(expanded)}
               sx={{ mt: user.subscription === 'pro' ? 2 : 0 }}
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                  Tile Data
+                  {user.subscription === 'pro' && (isCustomTile || !selectedTile) ? 'Custom' : 'Tile Data'}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -528,7 +636,7 @@ const Calculator: React.FC = () => {
                           labelId="material-type-label"
                           value={inputs.materialType}
                           label="Material Type"
-                          onChange={(e) => setInputs({ ...inputs, materialType: e.target.value })}
+                          onChange={(e: SelectChangeEvent<string>) => setInputs({ ...inputs, materialType: e.target.value })}
                         >
                           <MenuItem value="Slate">Slate</MenuItem>
                           <MenuItem value="Tile">Tile</MenuItem>
@@ -632,7 +740,7 @@ const Calculator: React.FC = () => {
                         fullWidth
                         inputProps={{ min: 0 }}
                         variant="outlined"
-                        sx={{ input: { fontSize: '1.2rem', py: 1.5 } }}
+                        sx={{ input: { fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 1, sm: 1.5 } } }}
                       />
                     </Tooltip>
                   </Grid>
@@ -646,9 +754,22 @@ const Calculator: React.FC = () => {
                           />
                         }
                         label="Cross-Bonded"
+                        sx={{ display: 'flex', alignItems: 'center' }}
                       />
                     </Tooltip>
                   </Grid>
+                  {user.subscription === 'pro' && isCustomTile && (
+                    <Grid item xs={12}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleSaveCustomTile}
+                        sx={{ mt: 2, py: 1.5, fontSize: { xs: '1rem', sm: '1.2rem' }, width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Save Custom Tile
+                      </Button>
+                    </Grid>
+                  )}
                 </Grid>
               </AccordionDetails>
             </Accordion>
@@ -693,13 +814,18 @@ const Calculator: React.FC = () => {
                           fullWidth
                           inputProps={{ min: 0 }}
                           variant="outlined"
-                          sx={{ input: { fontSize: '1.2rem', py: 1.5 } }}
+                          sx={{ input: { fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 1, sm: 1.5 } } }}
                         />
                       </Tooltip>
                     </Grid>
                   ))}
                   <Grid item xs={12}>
-                    <Button onClick={addRafterHeight} variant="outlined" color="primary" sx={{ mt: 1, py: 1.5, fontSize: '1rem' }}>
+                    <Button
+                      onClick={addRafterHeight}
+                      variant="outlined"
+                      color="primary"
+                      sx={{ mt: 1, py: { xs: 1, sm: 1.5 }, fontSize: { xs: '0.9rem', sm: '1rem' }, width: { xs: '100%', sm: 'auto' } }}
+                    >
                       Add Another Rafter Height
                     </Button>
                   </Grid>
@@ -715,7 +841,7 @@ const Calculator: React.FC = () => {
                           required
                           inputProps={{ min: 0 }}
                           variant="outlined"
-                          sx={{ input: { fontSize: '1.2rem', py: 1.5 } }}
+                          sx={{ input: { fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 1, sm: 1.5 } } }}
                         />
                       </Tooltip>
                     </Grid>
@@ -755,13 +881,18 @@ const Calculator: React.FC = () => {
                           fullWidth
                           inputProps={{ min: 0 }}
                           variant="outlined"
-                          sx={{ input: { fontSize: '1.2rem', py: 1.5 } }}
+                          sx={{ input: { fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 1, sm: 1.5 } } }}
                         />
                       </Tooltip>
                     </Grid>
                   ))}
                   <Grid item xs={12}>
-                    <Button onClick={addWidth} variant="outlined" color="primary" sx={{ mt: 1, py: 1.5, fontSize: '1rem' }}>
+                    <Button
+                      onClick={addWidth}
+                      variant="outlined"
+                      color="primary"
+                      sx={{ mt: 1, py: { xs: 1, sm: 1.5 }, fontSize: { xs: '0.9rem', sm: '1rem' }, width: { xs: '100%', sm: 'auto' } }}
+                    >
                       Add Another Width
                     </Button>
                   </Grid>
@@ -786,8 +917,8 @@ const Calculator: React.FC = () => {
                         labelId="use-dry-ridge-label"
                         value={inputs.useDryRidge}
                         label="Ridge Type"
-                        onChange={(e) => setInputs({ ...inputs, useDryRidge: e.target.value as 'YES' | 'NO' })}
-                        sx={{ fontSize: '1.2rem', py: 0.5 }}
+                        onChange={(e: SelectChangeEvent<'YES' | 'NO'>) => setInputs({ ...inputs, useDryRidge: e.target.value as 'YES' | 'NO' })}
+                        sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
                       >
                         <MenuItem value="YES">Dry Ridge</MenuItem>
                         <MenuItem value="NO">Wet Ridge</MenuItem>
@@ -806,8 +937,8 @@ const Calculator: React.FC = () => {
                           labelId="left-verge-type-label"
                           value={inputs.leftVergeType}
                           label="Left Verge Type"
-                          onChange={(e) => setInputs({ ...inputs, leftVergeType: e.target.value as 'Wet' | 'Dry' | 'Abutment' })}
-                          sx={{ fontSize: '1.2rem', py: 0.5 }}
+                          onChange={(e: SelectChangeEvent<'Wet' | 'Dry' | 'Abutment'>) => setInputs({ ...inputs, leftVergeType: e.target.value as 'Wet' | 'Dry' | 'Abutment' })}
+                          sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
                         >
                           <MenuItem value="Wet">Wet Verge</MenuItem>
                           <MenuItem value="Dry">Dry Verge</MenuItem>
@@ -824,8 +955,8 @@ const Calculator: React.FC = () => {
                           labelId="right-verge-type-label"
                           value={inputs.rightVergeType}
                           label="Right Verge Type"
-                          onChange={(e) => setInputs({ ...inputs, rightVergeType: e.target.value as 'Wet' | 'Dry' | 'Abutment' })}
-                          sx={{ fontSize: '1.2rem', py: 0.5 }}
+                          onChange={(e: SelectChangeEvent<'Wet' | 'Dry' | 'Abutment'>) => setInputs({ ...inputs, rightVergeType: e.target.value as 'Wet' | 'Dry' | 'Abutment' })}
+                          sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
                         >
                           <MenuItem value="Wet">Wet Verge</MenuItem>
                           <MenuItem value="Dry">Dry Verge</MenuItem>
@@ -842,9 +973,9 @@ const Calculator: React.FC = () => {
                           labelId="use-lh-tile-label"
                           value={inputs.useLHTile}
                           label="Use LH Tile"
-                          onChange={(e) => setInputs({ ...inputs, useLHTile: e.target.value as 'YES' | 'NO' })}
+                          onChange={(e: SelectChangeEvent<'YES' | 'NO'>) => setInputs({ ...inputs, useLHTile: e.target.value as 'YES' | 'NO' })}
                           disabled={inputs.leftVergeType === 'Abutment' || inputs.rightVergeType === 'Abutment'}
-                          sx={{ fontSize: '1.2rem', py: 0.5 }}
+                          sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
                         >
                           <MenuItem value="YES">Yes</MenuItem>
                           <MenuItem value="NO">No</MenuItem>
@@ -866,113 +997,236 @@ const Calculator: React.FC = () => {
                   variant="contained"
                   color="primary"
                   onClick={calculateRoof}
-                  sx={{ py: 1.5, fontSize: '1.2rem', minWidth: 200 }}
+                  sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 180, sm: 200 } }}
                 >
                   Calculate Roof
                 </Button>
               </Box>
             ) : (
               <Paper sx={{ mt: 5, p: { xs: 2, sm: 3 }, borderRadius: 2, boxShadow: 2 }}>
-                <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                   Calculation Results
                 </Typography>
                 {/* Tile and Settings */}
-                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'medium' }}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'medium', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                   TILE: {inputs.tileName}
                 </Typography>
-                <Typography variant="body1" sx={{ ml: 2 }}>
+                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                   Left Verge: {inputs.leftVergeType}
                 </Typography>
-                <Typography variant="body1" sx={{ ml: 2 }}>
+                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                   Right Verge: {inputs.rightVergeType}
                 </Typography>
-                <Typography variant="body1" sx={{ ml: 2 }}>
+                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                   Use LH Tile: {inputs.useLHTile}
                 </Typography>
-                <Typography variant="body1" sx={{ ml: 2 }}>
+                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                   Crossbonded: {inputs.crossBonded}
                 </Typography>
                 {/* Results */}
-                <Typography variant="h6" sx={{ mt: 2, mb: 1, fontWeight: 'medium' }}>
+                <Typography variant="h6" sx={{ mt: 2, mb: 1, fontWeight: 'medium', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                   RESULTS
                 </Typography>
+                {/* Vertical Results */}
+                {inputs.rafterHeights.some(h => h > 0) && (
+                  <Accordion sx={{ mb: 2 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                        Vertical Results
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                        inputs.rafterHeights[index] > 0 && (
+                          <Accordion key={index} sx={{ mb: 1 }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
+                                {inputs.rafterHeightNames[index]}
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Box sx={{ overflowX: 'auto' }}>
+                                <Table sx={{ minWidth: 650, backgroundColor: 'primary.main', color: 'white' }}>
+                                  <TableBody>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Under Eave Batten</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {results.vertical.underEaveBatten} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Eave Batten</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {results.vertical.eaveBatten} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>1st Batten</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {results.vertical.firstBatten} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    {results.vertical.solution.type === 'full' && (
+                                      <>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Batten Gauge</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.battenGauge} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {results.vertical.firstBatten + (results.vertical.solution.n_spaces - 1) * (r.battenGauge || 0) + r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                      </>
+                                    )}
+                                    {results.vertical.solution.type === 'split' && (
+                                      <>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Gauge 1</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.gauge1} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Gauge 2</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.gauge2} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {results.vertical.firstBatten + (results.vertical.solution.n1! * (r.gauge1 || 0) + results.vertical.solution.n2! * (r.gauge2 || 0)) + r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                      </>
+                                    )}
+                                    {results.vertical.solution.type === 'cut' && (
+                                      <>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Cut Course Gauge</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.cutCourseGauge} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Full Courses</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.fullCourses}
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {results.vertical.firstBatten + (r.cutCourseGauge || 0) + (r.fullCourses || 0) * inputs.maxGauge + r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                      </>
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </Box>
+                            </AccordionDetails>
+                          </Accordion>
+                        )
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+                {/* Horizontal Results */}
                 {inputs.widths.some(w => w > 0) && (
-                  <>
-                    {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
-                      inputs.widths[index] > 0 && (
-                        <Box key={index} sx={{ mb: 2 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                            WIDTH {index + 1}
-                          </Typography>
-                          <Table sx={{ minWidth: { xs: 300, sm: 650 }, backgroundColor: 'primary.main', color: 'white' }}>
-                            <TableBody>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>
-                                  {inputs.widthNames[index].toUpperCase()}
-                                </TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {inputs.widths[index]} mm
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Starting Width</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {inputs.widths[index]} mm
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Final Width</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {inputs.widths[index] + r.overhangLeft + r.overhangRight} mm
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Total Tiles Wide</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {results.horizontal.tilesWide}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Left Overhang</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {r.overhangLeft} mm
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Right Overhang</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {r.overhangRight} mm
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>1st Mark</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {r.firstMark} mm
-                                </TableCell>
-                              </TableRow>
-                              {r.secondMark && (
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>2nd Mark</TableCell>
-                                  <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                    {r.secondMark} mm
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                              <TableRow>
-                                <TableCell sx={{ fontSize: '1.1rem', color: 'white' }}>Chalk Marks</TableCell>
-                                <TableCell sx={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>
-                                  {r.totalSets} @ {r.adjustedMarks} mm
-                                </TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                            *measure from LH brickwork, Marks In sets of {results.horizontal.setSize}
-                          </Typography>
-                        </Box>
-                      )
-                    ))}
-                  </>
+                  <Accordion sx={{ mb: 2 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                        Horizontal Results
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                        inputs.widths[index] > 0 && (
+                          <Accordion key={index} sx={{ mb: 1 }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
+                                {inputs.widthNames[index]}
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Box sx={{ overflowX: 'auto' }}>
+                                <Table sx={{ minWidth: 650, backgroundColor: 'primary.main', color: 'white' }}>
+                                  <TableBody>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>
+                                        {inputs.widthNames[index].toUpperCase()}
+                                      </TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {inputs.widths[index]} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Starting Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {inputs.widths[index]} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Final Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {inputs.widths[index] + r.overhangLeft + r.overhangRight} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total Tiles Wide</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {results.horizontal.tilesWide}
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Left Overhang</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {r.overhangLeft} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Right Overhang</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {r.overhangRight} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>1st Mark</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {r.firstMark} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    {r.secondMark && (
+                                      <TableRow>
+                                        <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>2nd Mark</TableCell>
+                                        <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          {r.secondMark} mm
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Chalk Marks</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        {r.totalSets} @ {r.adjustedMarks} mm
+                                      </TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </Box>
+                              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+                                *measure from LH brickwork, Marks In sets of {results.horizontal.setSize}
+                              </Typography>
+                            </AccordionDetails>
+                          </Accordion>
+                        )
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
                 )}
                 {user.subscription === 'pro' && results !== null && (
                   <Box sx={{ mt: 3 }}>
@@ -988,7 +1242,7 @@ const Calculator: React.FC = () => {
                       variant="contained"
                       color="primary"
                       onClick={handleSaveResults}
-                      sx={{ py: 1.5, fontSize: '1.2rem' }}
+                      sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, width: { xs: '100%', sm: 'auto' } }}
                     >
                       Save Results
                     </Button>
@@ -996,12 +1250,12 @@ const Calculator: React.FC = () => {
                 )}
               </Paper>
             )}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, flexWrap: 'wrap', gap: 2 }}>
               <Button
                 onClick={handleBack}
                 variant="outlined"
                 color="primary"
-                sx={{ py: 1.5, fontSize: '1.2rem', minWidth: 120 }}
+                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
               >
                 Back
               </Button>
@@ -1009,11 +1263,44 @@ const Calculator: React.FC = () => {
                 onClick={handleRecalculate}
                 variant="contained"
                 color="primary"
-                sx={{ py: 1.5, fontSize: '1.2rem', minWidth: 120 }}
+                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
               >
                 Recalculate
               </Button>
             </Box>
+          </Box>
+        )}
+        {/* Navigation Buttons */}
+        {activeStep < 3 && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, flexWrap: 'wrap', gap: 2 }}>
+            <Button
+              disabled={activeStep === 0}
+              onClick={handleBack}
+              variant="outlined"
+              color="primary"
+              sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
+            >
+              Back
+            </Button>
+            {activeStep === 2 ? (
+              <Button
+                onClick={calculateRoof}
+                variant="contained"
+                color="primary"
+                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
+              >
+                Calculate
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                variant="contained"
+                color="primary"
+                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
+              >
+                Next
+              </Button>
+            )}
           </Box>
         )}
       </Box>

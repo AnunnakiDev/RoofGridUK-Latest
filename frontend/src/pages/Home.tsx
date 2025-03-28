@@ -12,7 +12,13 @@ const Home: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <Box sx={{ flexGrow: 1, pt: { xs: 10, sm: 12 }, pb: { xs: 10, sm: 12 } }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          pt: { xs: '64px', md: '80px' }, // Adjust for Navbar height + safe area
+          pb: { xs: '80px', md: '100px' }, // Adjust for Footer height + safe area
+        }}
+      >
         {/* Hero Section */}
         <Box
           sx={{
@@ -103,7 +109,7 @@ const Home: React.FC = () => {
         <Box sx={{ py: 6, textAlign: 'center' }}>
           <Container maxWidth="lg">
             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3, color: '#1b75bc' }}>
-              Ready to Simplify Your Roofing Projects?
+              Ready to Step up your Game?
             </Typography>
             <Button
               variant="contained"

@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Calculator from './pages/Calculator';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import SavedProjects from './pages/SavedProjects'; // Added import
 
 const App: React.FC = () => {
   return (
@@ -15,6 +16,7 @@ const App: React.FC = () => {
           <Route path="/calculator" element={<Calculator />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/saved-projects" element={<SavedProjects />} /> {/* Added route */}
           {/* Add more routes as we implement pages */}
         </Routes>
       </Router>
