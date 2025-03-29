@@ -19,6 +19,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'free',
     },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: true, // Validates email format
+      },
+    },
   }, {
     tableName: 'user', // Explicitly set the table name
   });

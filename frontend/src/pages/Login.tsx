@@ -10,8 +10,17 @@ import Footer from '../components/Footer';
 interface JwtPayload {
   id: number;
   username: string;
+  email: string;
   role: string;
   subscription: string;
+}
+
+interface User {
+  id: number | null;
+  token: string | null;
+  role: string | null;
+  subscription: string | null;
+  email: string | null; // Added email field
 }
 
 const Login: React.FC = () => {
@@ -31,10 +40,11 @@ const Login: React.FC = () => {
       setUser({
         id: decoded.id,
         token: token,
-        role: response.data.role,
-        subscription: response.data.subscription,
+        role: decoded.role,
+        subscription: decoded.subscription,
+        email: decoded.email, // Include email in the user context
       });
-      navigate('/');
+      navigate('/calculator');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
     }

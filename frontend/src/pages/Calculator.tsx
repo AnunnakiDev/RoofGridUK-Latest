@@ -171,6 +171,9 @@ const Calculator: React.FC = () => {
         halfTiles: project.totalResults?.halfTiles || 0,
       });
       setActiveStep(3); // Navigate to Results step
+      // Open Tile Data and Settings accordions by default when pre-filling
+      setTileDataExpandedResults(true);
+      setSettingsExpandedResults(true);
     }
   }, [location.state]);
 
@@ -437,6 +440,9 @@ const Calculator: React.FC = () => {
         halfTiles,
       });
       setActiveStep(3);
+      // Open Tile Data and Settings accordions by default after calculation
+      setTileDataExpandedResults(true);
+      setSettingsExpandedResults(true);
     } catch (err: any) {
       setError(err.message || 'Calculation failed');
     }
@@ -475,6 +481,8 @@ const Calculator: React.FC = () => {
     setStepErrors([]);
     setProjectName('');
     setActiveStep(0);
+    setTileDataExpandedResults(false);
+    setSettingsExpandedResults(false);
   };
 
   const handleSaveResults = async () => {
@@ -574,7 +582,7 @@ const Calculator: React.FC = () => {
           mx: 'auto',
           p: { xs: 1, sm: 2, md: 3 },
           pt: { xs: '64px', md: '80px' },
-          pb: { xs: '120px', md: '140px' },
+          pb: { xs: '160px', md: '180px' }, // Increased padding to ensure buttons are above footer
           minHeight: 'calc(100vh - 128px)',
           px: { xs: 1, sm: 2 },
         }}
@@ -938,7 +946,7 @@ const Calculator: React.FC = () => {
                   </Tooltip>
                 </Grid>
               )}
-              {inputs.widths.some(w => w > 0) && (
+              {(inputs.widths.some(w => w > 0) || inputs.rafterHeights.some(h => h > 0)) && (
                 <>
                   <Grid item xs={12} sm={6}>
                     <Tooltip title="Select the type of left verge">
@@ -1291,14 +1299,6 @@ const Calculator: React.FC = () => {
                               <Box sx={{ overflowX: 'auto' }}>
                                 <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
                                   <TableBody>
-                                    <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>
-                                        {inputs.widthNames[index].toUpperCase()}
-                                      </TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                        {inputs.widths[index]} mm
-                                      </TableCell>
-                                    </TableRow>
                                     <TableRow>
                                       <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Starting Width</TableCell>
                                       <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>

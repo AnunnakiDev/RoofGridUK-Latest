@@ -110,8 +110,11 @@ const SavedProjects: React.FC = () => {
   // Handle project accordion expand/collapse
   const handleExpand = (projectId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded ? projectId : false);
-    // Reset Tile Data and Settings accordions when the project accordion is collapsed
-    if (!isExpanded) {
+    // Open Tile Data and Settings accordions by default when the project accordion is expanded
+    if (isExpanded) {
+      setTileDataExpanded(projectId);
+      setSettingsExpanded(projectId);
+    } else {
       setTileDataExpanded(false);
       setSettingsExpanded(false);
     }
@@ -145,7 +148,7 @@ const SavedProjects: React.FC = () => {
           mx: 'auto',
           p: { xs: 1, sm: 2, md: 3 },
           pt: { xs: '64px', md: '80px' },
-          pb: { xs: '120px', md: '140px' },
+          pb: { xs: '160px', md: '180px' },
           minHeight: 'calc(100vh - 128px)',
           overflow: 'auto',
           px: { xs: 1, sm: 2 },

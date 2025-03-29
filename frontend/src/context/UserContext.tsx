@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { jwtDecode } from 'jwt-decode'; // Change to named import
+import { jwtDecode } from 'jwt-decode';
 
 interface DecodedToken {
   id: number;
   username: string;
+  email: string;
   role: string;
   subscription: string;
 }
@@ -13,6 +14,7 @@ interface User {
   token: string | null;
   role: string | null;
   subscription: string | null;
+  email: string | null;
 }
 
 interface UserContextType {
@@ -29,6 +31,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     const subscription = localStorage.getItem('subscription');
+    const email = localStorage.getItem('email');
 
     if (token) {
       try {
@@ -38,6 +41,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           token,
           role: decoded.role || role,
           subscription: decoded.subscription || subscription,
+          email: decoded.email || email,
         };
       } catch (error) {
         console.error('Invalid token:', error);
@@ -45,10 +49,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.removeItem('token');
         localStorage.removeItem('role');
         localStorage.removeItem('subscription');
-        return { id: null, token: null, role: null, subscription: null };
+        localStorage.removeItem('email');
+        return { id: null, token: null, role: null, subscription: null, email: null };
       }
     }
-    return { id: null, token: null, role: null, subscription: null };
+    return { id: null, token: null, role: null, subscription: null, email: null };
   });
 
   useEffect(() => {
@@ -57,16 +62,18 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('token', user.token);
       localStorage.setItem('role', user.role || '');
       localStorage.setItem('subscription', user.subscription || '');
+      localStorage.setItem('email', user.email || '');
     } else {
       localStorage.removeItem('id');
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('subscription');
+      localStorage.removeItem('email');
     }
   }, [user]);
 
   const logout = () => {
-    setUser({ id: null, token: null, role: null, subscription: null });
+    setUser({ id: null, token: null, role: null, subscription: null, email: null });
   };
 
   return (

@@ -16,17 +16,35 @@ const { user } = require('../db');
 
 // Register a new user
 router.post('/register', async (req, res) => {
-  const { username, password, role, subscription } = req.body;
+  const { username, password, email, role, subscription } = req.body;
 
   try {
     console.log('Register attempt for username:', username);
 
-    // Check if the user already exists
-    console.log('Checking if user exists:', username);
+    // Validate required fields
+    if (!username || !password || !email) {
+      console.log('Missing required fields:', { username, email });
+      return res.status(400).json({ message: 'Username, email, and password are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('Invalid email format:', email);
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    // Check if the user already exists by username or email
+    console.log('Checking if user exists:', username, email);
     const existingUser = await user.findOne({ where: { username } });
     if (existingUser) {
       console.log('User already exists:', username);
       return res.status(400).json({ message: 'Username already exists' });
+    }
+    const existingEmail = await user.findOne({ where: { email } });
+    if (existingEmail) {
+      console.log('Email already exists:', email);
+      return res.status(400).json({ message: 'Email already exists' });
     }
 
     // Hash the password
@@ -39,6 +57,7 @@ router.post('/register', async (req, res) => {
     const newUser = await user.create({
       username,
       password: hashedPassword,
+      email,
       role: role || 'user',
       subscription: subscription || 'free',
     });
@@ -47,7 +66,7 @@ router.post('/register', async (req, res) => {
     // Generate a JWT token
     console.log('Generating JWT token for user:', username);
     const token = jwt.sign(
-      { id: newUser.id, username: newUser.username, role: newUser.role, subscription: newUser.subscription },
+      { id: newUser.id, username: newUser.username, email: newUser.email, role: newUser.role, subscription: newUser.subscription },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -70,6 +89,12 @@ router.post('/login', async (req, res) => {
   try {
     console.log('Login attempt for username:', username);
 
+    // Validate required fields
+    if (!username || !password) {
+      console.log('Missing required fields:', { username });
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
+
     // Find the user by username
     console.log('Querying user table for username:', username);
     const foundUser = await user.findOne({ where: { username } });
@@ -91,7 +116,7 @@ router.post('/login', async (req, res) => {
     // Generate a JWT token
     console.log('Generating JWT token for user:', username);
     const token = jwt.sign(
-      { id: foundUser.id, username: foundUser.username, role: foundUser.role, subscription: foundUser.subscription },
+      { id: foundUser.id, username: foundUser.username, email: foundUser.email, role: foundUser.role, subscription: foundUser.subscription },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );

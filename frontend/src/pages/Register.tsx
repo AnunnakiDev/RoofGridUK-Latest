@@ -10,12 +10,22 @@ import Footer from '../components/Footer';
 interface JwtPayload {
   id: number;
   username: string;
+  email: string;
   role: string;
   subscription: string;
 }
 
+interface User {
+  id: number | null;
+  token: string | null;
+  role: string | null;
+  subscription: string | null;
+  email: string | null; // Added email field
+}
+
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { setUser } = useUser();
@@ -25,15 +35,16 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/auth/register', { username, password });
+      await api.post('/api/auth/register', { username, email, password });
       const loginResponse = await api.post('/api/auth/login', { username, password });
       const token = loginResponse.data.token;
       const decoded: JwtPayload = jwtDecode(token);
       setUser({
         id: decoded.id,
         token: token,
-        role: loginResponse.data.role,
-        subscription: loginResponse.data.subscription,
+        role: decoded.role,
+        subscription: decoded.subscription,
+        email: decoded.email, // Include email in the user context
       });
       navigate('/calculator');
     } catch (err: any) {
@@ -63,6 +74,16 @@ const Register: React.FC = () => {
             label="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            variant="outlined"
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             fullWidth
             margin="normal"
             required
