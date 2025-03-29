@@ -33,6 +33,11 @@ const Navbar: React.FC = () => {
     { label: 'Resources', path: '/resources' },
   ];
 
+  // Add Admin Dashboard link for admin users
+  const adminItems = user.role === 'admin'
+    ? [{ label: 'Admin Dashboard', path: '/admin/profile' }]
+    : [];
+
   const userItems = user.id
     ? [
         { label: 'Profile', path: '/profile' },
@@ -62,6 +67,16 @@ const Navbar: React.FC = () => {
         {/* Desktop Navigation */}
         <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
           {navItems.map((item) => (
+            <Button
+              key={item.label}
+              color="inherit"
+              onClick={() => navigate(item.path)}
+              sx={{ mx: 1, fontSize: '1rem', textTransform: 'none' }}
+            >
+              {item.label}
+            </Button>
+          ))}
+          {adminItems.map((item) => (
             <Button
               key={item.label}
               color="inherit"
@@ -106,6 +121,11 @@ const Navbar: React.FC = () => {
             }}
           >
             {navItems.map((item) => (
+              <MenuItem key={item.label} onClick={() => { navigate(item.path); handleClose(); }}>
+                {item.label}
+              </MenuItem>
+            ))}
+            {adminItems.map((item) => (
               <MenuItem key={item.label} onClick={() => { navigate(item.path); handleClose(); }}>
                 {item.label}
               </MenuItem>

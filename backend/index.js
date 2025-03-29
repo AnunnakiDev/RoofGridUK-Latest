@@ -9,7 +9,7 @@ const authRoutes = require('./routes/auth');
 const tilesRoutes = require('./routes/tiles');
 const projectsRoutes = require('./routes/projects');
 const userTilesRoutes = require('./routes/userTiles');
-// Removed authenticateToken import since it's used within routes
+const adminRoutes = require('./routes/admin'); // Add this line
 
 const startServer = async () => {
   try {
@@ -33,6 +33,7 @@ const startServer = async () => {
     app.use('/api/tiles', tilesRoutes);       // authenticateToken and checkProUser in tiles.js
     app.use('/api/projects', projectsRoutes); // authenticateToken in projects.js
     app.use('/api/users', userTilesRoutes);   // authenticateToken in userTiles.js
+    app.use('/api/admin', adminRoutes);       // Add this line
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

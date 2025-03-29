@@ -45,7 +45,7 @@ const Login: React.FC = () => {
         email: decoded.email,
       });
       if (decoded.role === 'admin') {
-        navigate('/admin/profile');
+        navigate('/admin/projects');
       } else {
         navigate('/calculator');
       }
