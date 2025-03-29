@@ -35,8 +35,7 @@ const Navbar: React.FC = () => {
 
   const userItems = user.id
     ? [
-        { label: 'Saved Projects', path: '/saved-projects' }, // Added Saved Projects link
-        { label: 'Profile', path: '/profile' },
+        { label: 'Profile', path: '/profile' }, // Saved Projects and Custom Tiles removed
         { label: 'Logout', action: handleLogout },
       ]
     : [

@@ -192,8 +192,36 @@ const Calculator: React.FC = () => {
           tilesList.push(...personalTiles);
         }
 
+        // Add a "Custom Tile" option
+        tilesList.push({
+          id: -1,
+          name: 'Custom Tile',
+          type: 'Custom',
+          length: 0,
+          width: 0,
+          eave_tile_length: 0,
+          headlap: 0,
+          crossbonded: 'NO',
+          mingauge: 0,
+          maxgauge: 0,
+          minspacing: 0,
+          maxspacing: 0,
+          datasheet_link: null,
+          lhTileWidth: 0,
+          isPersonal: false,
+        });
+
+        // Deduplicate tiles by name
+        const uniqueTilesMap = new Map<string, Tile>();
+        tilesList.forEach((tile) => {
+          if (!uniqueTilesMap.has(tile.name)) {
+            uniqueTilesMap.set(tile.name, tile);
+          }
+        });
+        const uniqueTiles = Array.from(uniqueTilesMap.values());
+
         // Sort tiles by type and then by name
-        tilesList.sort((a: Tile, b: Tile) => {
+        uniqueTiles.sort((a: Tile, b: Tile) => {
           const typeA = a.type.toLowerCase();
           const typeB = b.type.toLowerCase();
           if (typeA < typeB) return -1;
@@ -203,16 +231,14 @@ const Calculator: React.FC = () => {
           return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
         });
 
-        setTiles(tilesList);
+        setTiles(uniqueTiles);
       } catch (err) {
         console.error('Error fetching tiles:', err);
         setError('Failed to fetch tiles');
       }
     };
 
-    if (user.subscription === 'pro') {
-      fetchTiles();
-    }
+    fetchTiles();
   }, [user.subscription]);
 
   // Auto-collapse Vertical section if all rafter heights are 0
@@ -231,12 +257,32 @@ const Calculator: React.FC = () => {
 
   const handleTileSelect = (event: React.SyntheticEvent, value: Tile | null) => {
     if (!value) {
+      setIsCustomTile(false);
+      setSelectedTile(null);
+      setInputs({
+        ...inputs,
+        tileSelection: '',
+        tileName: '',
+        materialType: '',
+        slateTileHeight: 0,
+        tileCoverWidth: 0,
+        minGauge: 75,
+        maxGauge: 325,
+        minSpacing: 3,
+        maxSpacing: 7,
+        lhTileWidth: 0,
+        crossBonded: 'NO',
+      });
+      return;
+    }
+
+    if (value.name === 'Custom Tile') {
       setIsCustomTile(true);
       setSelectedTile(null);
       setInputs({
         ...inputs,
         tileSelection: 'custom',
-        tileName: 'Custom Tile',
+        tileName: '',
         materialType: '',
         slateTileHeight: 0,
         tileCoverWidth: 0,
@@ -362,6 +408,9 @@ const Calculator: React.FC = () => {
       if (inputs.lhTileWidth < 0) {
         errors.push('LH Tile Width must be 0 or greater.');
       }
+      if (isCustomTile && !inputs.tileName) {
+        errors.push('Tile Name is required for custom tiles.');
+      }
     } else if (step === 1) {
       const hasValidRafter = inputs.rafterHeights.some(h => h > 0);
       const hasValidWidth = inputs.widths.some(w => w > 0);
@@ -377,10 +426,93 @@ const Calculator: React.FC = () => {
     return errors.length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(activeStep)) {
-      setActiveStep(prev => prev + 1);
+  const handleSaveCustomTile = async () => {
+    if (!validateStep(0)) return;
+
+    try {
+      const response = await api.post('/api/users/tiles', {
+        name: inputs.tileName,
+        type: inputs.materialType,
+        length: inputs.slateTileHeight,
+        width: inputs.tileCoverWidth,
+        mingauge: inputs.minGauge,
+        maxgauge: inputs.maxGauge,
+        minspacing: inputs.minSpacing,
+        maxspacing: inputs.maxSpacing,
+        lhTileWidth: inputs.lhTileWidth,
+        crossbonded: inputs.crossBonded,
+      });
+      const newTile = { ...response.data, isPersonal: true };
+      setTiles((prevTiles) => {
+        const updatedTiles = [...prevTiles, newTile];
+        updatedTiles.sort((a: Tile, b: Tile) => {
+          const typeA = a.type.toLowerCase();
+          const typeB = b.type.toLowerCase();
+          if (typeA < typeB) return -1;
+          if (typeA > typeB) return 1;
+          const nameA = a.name.toLowerCase();
+          const nameB = b.name.toLowerCase();
+          return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+        });
+        return updatedTiles;
+      });
+      setSelectedTile(newTile);
+      setInputs((prevInputs) => ({
+        ...prevInputs,
+        tileSelection: newTile.id.toString(),
+      }));
+      setError(null);
+      setStepErrors([]);
+      alert('Custom tile saved successfully!');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save custom tile');
     }
+  };
+
+  const handleNext = async () => {
+    if (!validateStep(activeStep)) return;
+
+    // If in Step 0 and creating a custom tile, save the tile before proceeding
+    if (activeStep === 0 && isCustomTile && user.subscription === 'pro') {
+      try {
+        const response = await api.post('/api/users/tiles', {
+          name: inputs.tileName,
+          type: inputs.materialType,
+          length: inputs.slateTileHeight,
+          width: inputs.tileCoverWidth,
+          mingauge: inputs.minGauge,
+          maxgauge: inputs.maxGauge,
+          minspacing: inputs.minSpacing,
+          maxspacing: inputs.maxSpacing,
+          lhTileWidth: inputs.lhTileWidth,
+          crossbonded: inputs.crossBonded,
+        });
+        const newTile = { ...response.data, isPersonal: true };
+        setTiles((prevTiles) => {
+          const updatedTiles = [...prevTiles, newTile];
+          updatedTiles.sort((a: Tile, b: Tile) => {
+            const typeA = a.type.toLowerCase();
+            const typeB = b.type.toLowerCase();
+            if (typeA < typeB) return -1;
+            if (typeA > typeB) return 1;
+            const nameA = a.name.toLowerCase();
+            const nameB = b.name.toLowerCase();
+            return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+          });
+          return updatedTiles;
+        });
+        setSelectedTile(newTile);
+        setInputs((prevInputs) => ({
+          ...prevInputs,
+          tileSelection: newTile.id.toString(),
+        }));
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to save custom tile');
+        return;
+      }
+    }
+
+    setActiveStep(prev => prev + 1);
   };
 
   const handleBack = () => {
@@ -527,47 +659,6 @@ const Calculator: React.FC = () => {
     }
   };
 
-  const handleSaveCustomTile = async () => {
-    if (user.subscription !== 'pro') return;
-
-    try {
-      const response = await api.post('/api/users/tiles', {
-        name: inputs.tileName,
-        type: inputs.materialType,
-        length: inputs.slateTileHeight,
-        width: inputs.tileCoverWidth,
-        mingauge: inputs.minGauge,
-        maxgauge: inputs.maxGauge,
-        minspacing: inputs.minSpacing,
-        maxspacing: inputs.maxSpacing,
-        lhTileWidth: inputs.lhTileWidth,
-        crossbonded: inputs.crossBonded,
-      });
-      const newTile = { ...response.data, isPersonal: true };
-      setTiles((prevTiles) => {
-        const updatedTiles = [...prevTiles, newTile];
-        updatedTiles.sort((a: Tile, b: Tile) => {
-          const typeA = a.type.toLowerCase();
-          const typeB = b.type.toLowerCase();
-          if (typeA < typeB) return -1;
-          if (typeA > typeB) return 1;
-          const nameA = a.name.toLowerCase();
-          const nameB = b.name.toLowerCase();
-          return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
-        });
-        return updatedTiles;
-      });
-      setSelectedTile(newTile);
-      setInputs((prevInputs) => ({
-        ...prevInputs,
-        tileSelection: newTile.id.toString(),
-      }));
-      alert('Custom tile saved successfully!');
-    } catch (err) {
-      setError('Failed to save custom tile. Please try again.');
-    }
-  };
-
   const steps = user.subscription === 'pro'
     ? ['Choose Tile', 'Roof Dimensions', 'Settings', 'Results']
     : ['Tile Data', 'Roof Dimensions', 'Settings', 'Results'];
@@ -582,7 +673,7 @@ const Calculator: React.FC = () => {
           mx: 'auto',
           p: { xs: 1, sm: 2, md: 3 },
           pt: { xs: '64px', md: '80px' },
-          pb: { xs: '160px', md: '180px' }, // Increased padding to ensure buttons are above footer
+          pb: { xs: '160px', md: '180px' },
           minHeight: 'calc(100vh - 128px)',
           px: { xs: 1, sm: 2 },
         }}
@@ -642,11 +733,23 @@ const Calculator: React.FC = () => {
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                  {user.subscription === 'pro' && (isCustomTile || !selectedTile) ? 'Custom' : 'Tile Data'}
+                  {user.subscription === 'pro' && (isCustomTile || !selectedTile) ? 'Custom Tile Data' : 'Tile Data'}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Grid container spacing={3}>
+                  {isCustomTile && (
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Tile Name"
+                        value={inputs.tileName}
+                        onChange={(e) => setInputs({ ...inputs, tileName: e.target.value })}
+                        fullWidth
+                        required
+                        variant="outlined"
+                      />
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={6}>
                     <Tooltip title="Select the type of material">
                       <FormControl fullWidth>
@@ -927,27 +1030,27 @@ const Calculator: React.FC = () => {
               Settings
             </Typography>
             <Grid container spacing={3}>
-              {inputs.rafterHeights.some(h => h > 0) && (
-                <Grid item xs={12} sm={6}>
-                  <Tooltip title="Select the type of ridge system">
-                    <FormControl fullWidth>
-                      <InputLabel id="use-dry-ridge-label">Ridge Type</InputLabel>
-                      <Select
-                        labelId="use-dry-ridge-label"
-                        value={inputs.useDryRidge}
-                        label="Ridge Type"
-                        onChange={(e: SelectChangeEvent<'YES' | 'NO'>) => setInputs({ ...inputs, useDryRidge: e.target.value as 'YES' | 'NO' })}
-                        sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
-                      >
-                        <MenuItem value="YES">Dry Ridge</MenuItem>
-                        <MenuItem value="NO">Wet Ridge</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Tooltip>
-                </Grid>
-              )}
-              {(inputs.widths.some(w => w > 0) || inputs.rafterHeights.some(h => h > 0)) && (
+              {(inputs.rafterHeights.some(h => h > 0) || inputs.widths.some(w => w > 0)) && (
                 <>
+                  {inputs.rafterHeights.some(h => h > 0) && (
+                    <Grid item xs={12} sm={6}>
+                      <Tooltip title="Select the type of ridge system">
+                        <FormControl fullWidth>
+                          <InputLabel id="use-dry-ridge-label">Ridge Type</InputLabel>
+                          <Select
+                            labelId="use-dry-ridge-label"
+                            value={inputs.useDryRidge}
+                            label="Ridge Type"
+                            onChange={(e: SelectChangeEvent<'YES' | 'NO'>) => setInputs({ ...inputs, useDryRidge: e.target.value as 'YES' | 'NO' })}
+                            sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, py: { xs: 0.5, sm: 0.5 } }}
+                          >
+                            <MenuItem value="YES">Dry Ridge</MenuItem>
+                            <MenuItem value="NO">Wet Ridge</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Tooltip>
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={6}>
                     <Tooltip title="Select the type of left verge">
                       <FormControl fullWidth>
@@ -1039,12 +1142,6 @@ const Calculator: React.FC = () => {
                         <Box sx={{ overflowX: 'auto' }}>
                           <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
                             <TableBody>
-                              <TableRow>
-                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile</TableCell>
-                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                  {inputs.tileName}
-                                </TableCell>
-                              </TableRow>
                               <TableRow>
                                 <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Material Type</TableCell>
                                 <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
@@ -1148,20 +1245,20 @@ const Calculator: React.FC = () => {
                   </Grid>
                 </Grid>
                 {/* Vertical Results */}
-                {inputs.rafterHeights.some(h => h > 0) && (
-                  <Accordion sx={{ mb: 2 }}>
+                {results.vertical && results.vertical.solution.rafterResults && (
+                  <Accordion sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
                         Vertical Results
                       </Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      {results.vertical.solution.rafterResults.map((r: RafterResult, index: number) => (
+                      {results.vertical.solution.rafterResults.map((r: any, index: number) => (
                         inputs.rafterHeights[index] > 0 && (
                           <Accordion key={index} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                               <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
-                                {inputs.rafterHeightNames[index]}
+                                Rafter {index + 1}
                               </Typography>
                             </AccordionSummary>
                             <AccordionDetails>
@@ -1279,20 +1376,20 @@ const Calculator: React.FC = () => {
                   </Accordion>
                 )}
                 {/* Horizontal Results */}
-                {inputs.widths.some(w => w > 0) && (
-                  <Accordion sx={{ mb: 2 }}>
+                {results.horizontal && results.horizontal.solution.widthResults && (
+                  <Accordion sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
                         Horizontal Results
                       </Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      {results.horizontal.solution.widthResults.map((r: WidthResult, index: number) => (
+                      {results.horizontal.solution.widthResults.map((r: any, index: number) => (
                         inputs.widths[index] > 0 && (
                           <Accordion key={index} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                               <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
-                                {inputs.widthNames[index]}
+                                Width {index + 1}
                               </Typography>
                             </AccordionSummary>
                             <AccordionDetails>
@@ -1362,79 +1459,102 @@ const Calculator: React.FC = () => {
                     </AccordionDetails>
                   </Accordion>
                 )}
-                {user.subscription === 'pro' && results !== null && (
-                  <Box sx={{ mt: 3 }}>
-                    <TextField
-                      label="Project Name"
-                      value={projectName}
-                      onChange={(e) => setProjectName(e.target.value)}
-                      fullWidth
-                      sx={{ mb: 2 }}
-                      variant="outlined"
-                    />
+                {/* Total Results */}
+                {results.totalCourses && (
+                  <Accordion sx={{ mb: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
+                        Total Results
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ overflowX: 'auto' }}>
+                        <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total Courses</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                {results.totalCourses}
+                              </TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total Tiles</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                {results.totalTiles}
+                              </TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Half Tiles</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                {results.halfTiles}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+                {/* Save Results */}
+                <Box sx={{ mt: 4, textAlign: 'center' }}>
+                  <TextField
+                    label="Project Name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    sx={{ mb: 2, width: { xs: '100%', sm: 300 } }}
+                    variant="outlined"
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                     <Button
                       variant="contained"
                       color="primary"
                       onClick={handleSaveResults}
-                      sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, width: { xs: '100%', sm: 'auto' } }}
+                      sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 180, sm: 200 } }}
                     >
                       Save Results
                     </Button>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleRecalculate}
+                      sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 180, sm: 200 } }}
+                    >
+                      Recalculate
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={handleBack}
+                      sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 180, sm: 200 } }}
+                    >
+                      Back
+                    </Button>
                   </Box>
-                )}
+                </Box>
               </Paper>
             )}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, flexWrap: 'wrap', gap: 2 }}>
-              <Button
-                onClick={handleBack}
-                variant="outlined"
-                color="primary"
-                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
-              >
-                Back
-              </Button>
-              <Button
-                onClick={handleRecalculate}
-                variant="contained"
-                color="primary"
-                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
-              >
-                Recalculate
-              </Button>
-            </Box>
           </Box>
         )}
         {/* Navigation Buttons */}
         {activeStep < 3 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button
-              disabled={activeStep === 0}
-              onClick={handleBack}
               variant="outlined"
-              color="primary"
-              sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
+              color="secondary"
+              onClick={handleBack}
+              disabled={activeStep === 0}
+              sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 120, sm: 150 } }}
             >
               Back
             </Button>
-            {activeStep === 2 ? (
-              <Button
-                onClick={calculateRoof}
-                variant="contained"
-                color="primary"
-                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
-              >
-                Calculate
-              </Button>
-            ) : (
-              <Button
-                onClick={handleNext}
-                variant="contained"
-                color="primary"
-                sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 100, sm: 120 }, flex: { xs: '1 1 45%', sm: '0 1 auto' } }}
-              >
-                Next
-              </Button>
-            )}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleNext}
+              sx={{ py: { xs: 1, sm: 1.5 }, fontSize: { xs: '1rem', sm: '1.2rem' }, minWidth: { xs: 120, sm: 150 } }}
+            >
+              Next
+            </Button>
           </Box>
         )}
       </Box>
