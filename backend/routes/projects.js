@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { project } = require('../db');
-const authenticateToken = require('../middleware/auth'); // Revert to direct import
+const authenticateToken = require('../middleware/auth');
 
-// Get all projects for the authenticated user
 router.get('/', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to save and view projects' });
@@ -20,19 +19,44 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Create a new project
 router.post('/', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to save projects' });
   }
-  const { projectName, rafterHeights, widths, settings, verticalResults, horizontalResults, totalResults } = req.body;
+  const {
+    projectName,
+    rafterHeights,
+    widths,
+    settings,
+    verticalResults,
+    horizontalResults,
+    totalResults,
+    materialType,
+    slateTileHeight,
+    tileCoverWidth,
+    minGauge,
+    maxGauge,
+    minSpacing,
+    maxSpacing,
+    crossBonded,
+  } = req.body;
   try {
     const newProject = await project.create({
       userId: req.user.id,
       projectName,
       rafterHeights,
       widths,
-      settings,
+      settings: {
+        ...settings,
+        materialType,
+        slateTileHeight,
+        tileCoverWidth,
+        minGauge,
+        maxGauge,
+        minSpacing,
+        maxSpacing,
+        crossBonded,
+      },
       verticalResults,
       horizontalResults,
       totalResults,
@@ -44,7 +68,6 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete a project
 router.delete('/:id', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to delete projects' });
@@ -64,7 +87,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Share a project (requires a SharedProject model)
 router.post('/share', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to share projects' });
@@ -72,8 +94,6 @@ router.post('/share', authenticateToken, async (req, res) => {
   const { projectId } = req.body;
   const shareToken = require('crypto').randomBytes(16).toString('hex');
   try {
-    // Note: This requires a SharedProject model, which we haven't defined yet
-    // For now, we'll comment this out and address it in the next phase
     res.status(501).json({ message: 'Sharing functionality not implemented yet' });
   } catch (err) {
     console.error('Error sharing project:', err);
@@ -81,12 +101,9 @@ router.post('/share', authenticateToken, async (req, res) => {
   }
 });
 
-// Get a shared project (requires a SharedProject model)
 router.get('/shared/:token', async (req, res) => {
   const { token } = req.params;
   try {
-    // Note: This requires a SharedProject model, which we haven't defined yet
-    // For now, we'll comment this out and address it in the next phase
     res.status(501).json({ message: 'Shared project functionality not implemented yet' });
   } catch (err) {
     console.error('Error fetching shared project:', err);

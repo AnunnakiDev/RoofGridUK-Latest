@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // Added useLocation
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   TextField,
@@ -104,7 +104,7 @@ interface Project {
 const Calculator: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
-  const location = useLocation(); // Added to access passed state
+  const location = useLocation();
   const [activeStep, setActiveStep] = useState(0);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
@@ -144,6 +144,8 @@ const Calculator: React.FC = () => {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stepErrors, setStepErrors] = useState<string[]>([]);
+  const [tileDataExpandedResults, setTileDataExpandedResults] = useState(false);
+  const [settingsExpandedResults, setSettingsExpandedResults] = useState(false);
 
   // Pre-fill form with project data if passed via state
   useEffect(() => {
@@ -493,6 +495,14 @@ const Calculator: React.FC = () => {
           lhTileWidth: inputs.lhTileWidth,
           gutterOverhang: inputs.gutterOverhang,
         },
+        materialType: inputs.materialType,
+        slateTileHeight: inputs.slateTileHeight,
+        tileCoverWidth: inputs.tileCoverWidth,
+        minGauge: inputs.minGauge,
+        maxGauge: inputs.maxGauge,
+        minSpacing: inputs.minSpacing,
+        maxSpacing: inputs.maxSpacing,
+        crossBonded: inputs.crossBonded,
         verticalResults: results?.vertical,
         horizontalResults: results?.horizontal,
         totalResults: results?.totalCourses ? {
@@ -560,12 +570,13 @@ const Calculator: React.FC = () => {
       <Box
         sx={{
           flexGrow: 1,
-          maxWidth: 900,
+          maxWidth: { xs: '100%', sm: 750, md: 900 },
           mx: 'auto',
-          p: { xs: 2, sm: 3 },
+          p: { xs: 1, sm: 2, md: 3 },
           pt: { xs: '64px', md: '80px' },
           pb: { xs: '120px', md: '140px' },
           minHeight: 'calc(100vh - 128px)',
+          px: { xs: 1, sm: 2 },
         }}
       >
         <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
@@ -1003,35 +1014,136 @@ const Calculator: React.FC = () => {
                 </Button>
               </Box>
             ) : (
-              <Paper sx={{ mt: 5, p: { xs: 2, sm: 3 }, borderRadius: 2, boxShadow: 2 }}>
+              <Paper sx={{ mt: 5, p: { xs: 1, sm: 2, md: 3 }, borderRadius: 2, boxShadow: 2 }}>
                 <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                   Calculation Results
                 </Typography>
-                {/* Tile and Settings */}
-                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'medium', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-                  TILE: {inputs.tileName}
-                </Typography>
-                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                  Left Verge: {inputs.leftVergeType}
-                </Typography>
-                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                  Right Verge: {inputs.rightVergeType}
-                </Typography>
-                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                  Use LH Tile: {inputs.useLHTile}
-                </Typography>
-                <Typography variant="body1" sx={{ ml: 2, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                  Crossbonded: {inputs.crossBonded}
-                </Typography>
-                {/* Results */}
-                <Typography variant="h6" sx={{ mt: 2, mb: 1, fontWeight: 'medium', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-                  RESULTS
-                </Typography>
+                {/* Tile Data and Settings */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Accordion expanded={tileDataExpandedResults} onChange={(event, expanded) => setTileDataExpandedResults(expanded)}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="h6" sx={{ fontWeight: 'medium', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+                          Tile Data
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Box sx={{ overflowX: 'auto' }}>
+                          <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.tileName}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Material Type</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.materialType}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Length</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.slateTileHeight} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Width</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.tileCoverWidth} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Gauge</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.minGauge} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Gauge</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.maxGauge} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Spacing</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.minSpacing} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Spacing</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.maxSpacing} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Cross-Bonded</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.crossBonded}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      </AccordionDetails>
+                    </Accordion>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Accordion expanded={settingsExpandedResults} onChange={(event, expanded) => setSettingsExpandedResults(expanded)}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="h6" sx={{ fontWeight: 'medium', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
+                          Settings
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Box sx={{ overflowX: 'auto' }}>
+                          <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Left Verge</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.leftVergeType}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Right Verge</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.rightVergeType}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Use LH Tile</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.useLHTile}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Gutter Overhang</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.gutterOverhang} mm
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Use Dry Ridge</TableCell>
+                                <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                  {inputs.useDryRidge}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      </AccordionDetails>
+                    </Accordion>
+                  </Grid>
+                </Grid>
                 {/* Vertical Results */}
                 {inputs.rafterHeights.some(h => h > 0) && (
                   <Accordion sx={{ mb: 2 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
                         Vertical Results
                       </Typography>
                     </AccordionSummary>
@@ -1040,43 +1152,53 @@ const Calculator: React.FC = () => {
                         inputs.rafterHeights[index] > 0 && (
                           <Accordion key={index} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
+                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
                                 {inputs.rafterHeightNames[index]}
                               </Typography>
                             </AccordionSummary>
                             <AccordionDetails>
                               <Box sx={{ overflowX: 'auto' }}>
-                                <Table sx={{ minWidth: 650, backgroundColor: 'primary.main', color: 'white' }}>
+                                <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
                                   <TableBody>
+                                    {inputs.useDryRidge === 'YES' && (
+                                      <TableRow>
+                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Under Eave Batten</TableCell>
+                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          {results.vertical.underEaveBatten} mm
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                    {['Slate', 'Fibre Cement Slate', 'Plain Tile'].includes(inputs.materialType) && (
+                                      <TableRow>
+                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Eave Batten</TableCell>
+                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          {results.vertical.eaveBatten} mm
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Under Eave Batten</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
-                                        {results.vertical.underEaveBatten} mm
-                                      </TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Eave Batten</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
-                                        {results.vertical.eaveBatten} mm
-                                      </TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>1st Batten</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>1st Batten</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {results.vertical.firstBatten} mm
                                       </TableCell>
                                     </TableRow>
                                     {results.vertical.solution.type === 'full' && (
                                       <>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Batten Gauge</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Batten Gauge</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {r.battenGauge} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {results.vertical.firstBatten + (results.vertical.solution.n_spaces - 1) * (r.battenGauge || 0) + r.effectiveRidgeOffset} mm
                                           </TableCell>
                                         </TableRow>
@@ -1085,20 +1207,26 @@ const Calculator: React.FC = () => {
                                     {results.vertical.solution.type === 'split' && (
                                       <>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Gauge 1</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Gauge 1</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {r.gauge1} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Gauge 2</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Gauge 2</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {r.gauge2} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {results.vertical.firstBatten + (results.vertical.solution.n1! * (r.gauge1 || 0) + results.vertical.solution.n2! * (r.gauge2 || 0)) + r.effectiveRidgeOffset} mm
                                           </TableCell>
                                         </TableRow>
@@ -1107,20 +1235,26 @@ const Calculator: React.FC = () => {
                                     {results.vertical.solution.type === 'cut' && (
                                       <>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Cut Course Gauge</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Cut Course Gauge</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {r.cutCourseGauge} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Full Courses</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {r.fullCourses}
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Full Courses Batten Gauge</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.fullCourses} @ {inputs.maxGauge} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
+                                            {r.effectiveRidgeOffset} mm
+                                          </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
+                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                             {results.vertical.firstBatten + (r.cutCourseGauge || 0) + (r.fullCourses || 0) * inputs.maxGauge + r.effectiveRidgeOffset} mm
                                           </TableCell>
                                         </TableRow>
@@ -1140,7 +1274,7 @@ const Calculator: React.FC = () => {
                 {inputs.widths.some(w => w > 0) && (
                   <Accordion sx={{ mb: 2 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
                         Horizontal Results
                       </Typography>
                     </AccordionSummary>
@@ -1149,76 +1283,76 @@ const Calculator: React.FC = () => {
                         inputs.widths[index] > 0 && (
                           <Accordion key={index} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
+                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
                                 {inputs.widthNames[index]}
                               </Typography>
                             </AccordionSummary>
                             <AccordionDetails>
                               <Box sx={{ overflowX: 'auto' }}>
-                                <Table sx={{ minWidth: 650, backgroundColor: 'primary.main', color: 'white' }}>
+                                <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
                                   <TableBody>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>
                                         {inputs.widthNames[index].toUpperCase()}
                                       </TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {inputs.widths[index]} mm
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Starting Width</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Starting Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {inputs.widths[index]} mm
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Final Width</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Final Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {inputs.widths[index] + r.overhangLeft + r.overhangRight} mm
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Total Tiles Wide</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total Tiles Wide</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {results.horizontal.tilesWide}
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Left Overhang</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Left Overhang</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {r.overhangLeft} mm
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Right Overhang</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Right Overhang</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {r.overhangRight} mm
                                       </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>1st Mark</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>1st Mark</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {r.firstMark} mm
                                       </TableCell>
                                     </TableRow>
                                     {r.secondMark && (
                                       <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>2nd Mark</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>2nd Mark</TableCell>
+                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                           {r.secondMark} mm
                                         </TableCell>
                                       </TableRow>
                                     )}
                                     <TableRow>
-                                      <TableCell sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, color: 'white' }}>Chalk Marks</TableCell>
-                                      <TableCell sx={{ fontSize: { xs: '1.1rem', sm: '1.3rem' }, fontWeight: 'bold', color: 'white' }}>
+                                      <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Chalk Marks</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
                                         {r.totalSets} @ {r.adjustedMarks} mm
                                       </TableCell>
                                     </TableRow>
                                   </TableBody>
                                 </Table>
                               </Box>
-                              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+                              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                                 *measure from LH brickwork, Marks In sets of {results.horizontal.setSize}
                               </Typography>
                             </AccordionDetails>
