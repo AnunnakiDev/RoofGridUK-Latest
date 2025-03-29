@@ -58,6 +58,10 @@ router.post('/users/tiles', authenticateToken, checkProUser, async (req, res) =>
   const userId = req.user.id;
 
   try {
+    console.log('Received request to create personal tile:', req.body);
+    // Validate crossbonded
+    const validCrossbonded = crossbonded === 'YES' || crossbonded === 'NO' ? crossbonded : 'NO';
+    console.log('Validated crossbonded:', validCrossbonded);
     const newTile = await userTile.create({
       userId,
       name,
@@ -69,11 +73,14 @@ router.post('/users/tiles', authenticateToken, checkProUser, async (req, res) =>
       minspacing,
       maxspacing,
       lhTileWidth,
-      crossbonded,
+      crossbonded: validCrossbonded,
     });
+    console.log('Created new tile:', newTile.toJSON());
     res.status(201).json(newTile);
   } catch (error) {
     console.error('Error creating personal tile:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Error creating personal tile', error: error.message });
   }
 });
@@ -88,6 +95,11 @@ router.put('/users/tiles/:id', authenticateToken, checkProUser, async (req, res)
     const tileToUpdate = await userTile.findOne({ where: { id: tileId, userId } });
     if (!tileToUpdate) {
       return res.status(404).json({ message: 'Tile not found or you do not have permission to edit it' });
+    }
+
+    // Validate maxspacing
+    if (maxspacing <= 0) {
+      return res.status(400).json({ message: 'Max Spacing must be greater than 0' });
     }
 
     await tileToUpdate.update({

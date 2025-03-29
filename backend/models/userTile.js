@@ -1,5 +1,10 @@
-module.exports = (sequelize, DataTypes) => {
+const userTile = (sequelize, DataTypes) => {
   const UserTile = sequelize.define('userTile', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -20,40 +25,34 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    eave_tile_length: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    headlap: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    crossBonded: {
+    crossbonded: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    minGauge: {
+    mingauge: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    maxGauge: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    minSpacing: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    maxSpacing: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    datasheet_link: {
-      type: DataTypes.STRING,
       allowNull: true,
+      defaultValue: 75, // Default value to match client-side default
     },
-  }, {
-    tableName: 'userTile', // Explicitly set the table name
+    maxgauge: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 325, // Default value to match client-side default
+    },
+    minspacing: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 3, // Default value to match client-side default
+    },
+    maxspacing: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 7, // Default value to match client-side default
+    },
+    lhTileWidth: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
   });
 
   UserTile.associate = (models) => {
@@ -62,3 +61,5 @@ module.exports = (sequelize, DataTypes) => {
 
   return UserTile;
 };
+
+module.exports = userTile;

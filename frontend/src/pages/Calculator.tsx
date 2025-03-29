@@ -43,14 +43,11 @@ interface Tile {
   type: string;
   length: number;
   width: number;
-  eave_tile_length: number | null;
-  headlap: number | null;
   crossbonded: string;
   mingauge: number;
   maxgauge: number;
   minspacing: number;
   maxspacing: number;
-  datasheet_link: string | null;
   lhTileWidth: number;
   isPersonal?: boolean;
 }
@@ -108,8 +105,7 @@ const Calculator: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
-  const [isCustomTile, setIsCustomTile] = useState(false);
-  const [isTileDataExpanded, setIsTileDataExpanded] = useState(false);
+  const [isTileDataExpanded, setIsTileDataExpanded] = useState(true); // Expanded by default
   const [verticalExpanded, setVerticalExpanded] = useState(false);
   const [horizontalExpanded, setHorizontalExpanded] = useState(false);
   const [projectName, setProjectName] = useState('');
@@ -192,25 +188,6 @@ const Calculator: React.FC = () => {
           tilesList.push(...personalTiles);
         }
 
-        // Add a "Custom Tile" option
-        tilesList.push({
-          id: -1,
-          name: 'Custom Tile',
-          type: 'Custom',
-          length: 0,
-          width: 0,
-          eave_tile_length: 0,
-          headlap: 0,
-          crossbonded: 'NO',
-          mingauge: 0,
-          maxgauge: 0,
-          minspacing: 0,
-          maxspacing: 0,
-          datasheet_link: null,
-          lhTileWidth: 0,
-          isPersonal: false,
-        });
-
         // Deduplicate tiles by name
         const uniqueTilesMap = new Map<string, Tile>();
         tilesList.forEach((tile) => {
@@ -255,9 +232,13 @@ const Calculator: React.FC = () => {
     }
   }, [inputs.widths]);
 
+  // Update accordion expansion based on tile selection
+  useEffect(() => {
+    setIsTileDataExpanded(selectedTile === null || selectedTile !== null);
+  }, [selectedTile]);
+
   const handleTileSelect = (event: React.SyntheticEvent, value: Tile | null) => {
     if (!value) {
-      setIsCustomTile(false);
       setSelectedTile(null);
       setInputs({
         ...inputs,
@@ -275,60 +256,42 @@ const Calculator: React.FC = () => {
       });
       return;
     }
-
-    if (value.name === 'Custom Tile') {
-      setIsCustomTile(true);
-      setSelectedTile(null);
-      setInputs({
-        ...inputs,
-        tileSelection: 'custom',
-        tileName: '',
-        materialType: '',
-        slateTileHeight: 0,
-        tileCoverWidth: 0,
-        minGauge: 75,
-        maxGauge: 325,
-        minSpacing: 3,
-        maxSpacing: 7,
-        lhTileWidth: 0,
-        crossBonded: 'NO',
-      });
-    } else {
-      setSelectedTile(value);
-      setIsCustomTile(false);
-      let materialType: string;
-      switch (value.type.toLowerCase()) {
-        case 'slate':
-          materialType = 'Slate';
-          break;
-        case 'fibre-cement-slate':
-          materialType = 'Fibre Cement Slate';
-          break;
-        case 'interlocking-tile':
-        case 'pantile':
-          materialType = 'Tile';
-          break;
-        case 'plain-tile':
-          materialType = 'Plain Tile';
-          break;
-        default:
-          materialType = value.type;
-      }
-      setInputs({
-        ...inputs,
-        tileSelection: value.id.toString(),
-        tileName: value.name,
-        materialType,
-        slateTileHeight: value.length,
-        tileCoverWidth: value.width,
-        minGauge: value.mingauge,
-        maxGauge: value.maxgauge,
-        minSpacing: value.minspacing,
-        maxSpacing: value.maxspacing,
-        lhTileWidth: value.lhTileWidth || 0,
-        crossBonded: value.crossbonded as 'YES' | 'NO',
-      });
+  
+    setSelectedTile(value);
+    let materialType: string;
+    switch (value.type.toLowerCase()) {
+      case 'slate':
+        materialType = 'Slate';
+        break;
+      case 'fibre-cement-slate':
+        materialType = 'Fibre Cement Slate';
+        break;
+      case 'interlocking-tile':
+      case 'pantile':
+        materialType = 'Tile';
+        break;
+      case 'plain-tile':
+        materialType = 'Plain Tile';
+        break;
+      default:
+        materialType = value.type;
     }
+    // Ensure crossBonded is always 'YES' or 'NO'
+    const crossBondedValue = value.crossbonded === 'YES' || value.crossbonded === 'NO' ? value.crossbonded : 'NO';
+    setInputs({
+      ...inputs,
+      tileSelection: value.id.toString(),
+      tileName: value.name,
+      materialType,
+      slateTileHeight: value.length,
+      tileCoverWidth: value.width,
+      minGauge: value.mingauge,
+      maxGauge: value.maxgauge,
+      minSpacing: value.minspacing,
+      maxSpacing: value.maxspacing,
+      lhTileWidth: value.lhTileWidth || 0,
+      crossBonded: crossBondedValue as 'YES' | 'NO',
+    });
   };
 
   const addRafterHeight = () => {
@@ -375,8 +338,8 @@ const Calculator: React.FC = () => {
     const errors: string[] = [];
 
     if (step === 0) {
-      if (user.subscription === 'pro' && !inputs.tileSelection) {
-        errors.push('Please select a tile.');
+      if (user.subscription === 'pro' && !inputs.tileSelection && !inputs.materialType) {
+        errors.push('Please select a tile or input custom tile data.');
       }
       if (!inputs.materialType) {
         errors.push('Material Type is required.');
@@ -408,8 +371,11 @@ const Calculator: React.FC = () => {
       if (inputs.lhTileWidth < 0) {
         errors.push('LH Tile Width must be 0 or greater.');
       }
-      if (isCustomTile && !inputs.tileName) {
-        errors.push('Tile Name is required for custom tiles.');
+      if (!inputs.tileName) {
+        errors.push('Tile Name is required.');
+      }
+      if (!inputs.crossBonded) {
+        errors.push('Cross-Bonded must be set to YES or NO.');
       }
     } else if (step === 1) {
       const hasValidRafter = inputs.rafterHeights.some(h => h > 0);
@@ -428,9 +394,9 @@ const Calculator: React.FC = () => {
 
   const handleSaveCustomTile = async () => {
     if (!validateStep(0)) return;
-
+  
     try {
-      const response = await api.post('/api/users/tiles', {
+      const payload = {
         name: inputs.tileName,
         type: inputs.materialType,
         length: inputs.slateTileHeight,
@@ -440,8 +406,11 @@ const Calculator: React.FC = () => {
         minspacing: inputs.minSpacing,
         maxspacing: inputs.maxSpacing,
         lhTileWidth: inputs.lhTileWidth,
-        crossbonded: inputs.crossBonded,
-      });
+        crossbonded: inputs.crossBonded || 'NO',
+      };
+      console.log('Saving custom tile with payload:', payload);
+      const response = await api.post('/api/users/tiles', payload);
+      console.log('Server response:', response.data);
       const newTile = { ...response.data, isPersonal: true };
       setTiles((prevTiles) => {
         const updatedTiles = [...prevTiles, newTile];
@@ -465,17 +434,21 @@ const Calculator: React.FC = () => {
       setStepErrors([]);
       alert('Custom tile saved successfully!');
     } catch (err: any) {
+      console.error('Error saving custom tile:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      console.error('Error headers:', err.response?.headers);
       setError(err.response?.data?.message || 'Failed to save custom tile');
     }
   };
 
   const handleNext = async () => {
     if (!validateStep(activeStep)) return;
-
-    // If in Step 0 and creating a custom tile, save the tile before proceeding
-    if (activeStep === 0 && isCustomTile && user.subscription === 'pro') {
+  
+    // If in Step 0, save the tile data before proceeding (for Pro users)
+    if (activeStep === 0 && user.subscription === 'pro') {
       try {
-        const response = await api.post('/api/users/tiles', {
+        const payload = {
           name: inputs.tileName,
           type: inputs.materialType,
           length: inputs.slateTileHeight,
@@ -485,8 +458,11 @@ const Calculator: React.FC = () => {
           minspacing: inputs.minSpacing,
           maxspacing: inputs.maxSpacing,
           lhTileWidth: inputs.lhTileWidth,
-          crossbonded: inputs.crossBonded,
-        });
+          crossbonded: inputs.crossBonded || 'NO',
+        };
+        console.log('Saving custom tile on Next with payload:', payload);
+        const response = await api.post('/api/users/tiles', payload);
+        console.log('Server response on Next:', response.data);
         const newTile = { ...response.data, isPersonal: true };
         setTiles((prevTiles) => {
           const updatedTiles = [...prevTiles, newTile];
@@ -507,11 +483,15 @@ const Calculator: React.FC = () => {
           tileSelection: newTile.id.toString(),
         }));
       } catch (err: any) {
+        console.error('Error saving custom tile on Next:', err);
+        console.error('Error response on Next:', err.response?.data);
+        console.error('Error status on Next:', err.response?.status);
+        console.error('Error headers on Next:', err.response?.headers);
         setError(err.response?.data?.message || 'Failed to save custom tile');
         return;
       }
     }
-
+  
     setActiveStep(prev => prev + 1);
   };
 
@@ -604,8 +584,7 @@ const Calculator: React.FC = () => {
       crossBonded: 'NO',
     });
     setSelectedTile(null);
-    setIsCustomTile(false);
-    setIsTileDataExpanded(false);
+    setIsTileDataExpanded(true);
     setVerticalExpanded(false);
     setHorizontalExpanded(false);
     setResults(null);
@@ -733,23 +712,21 @@ const Calculator: React.FC = () => {
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                  {user.subscription === 'pro' && (isCustomTile || !selectedTile) ? 'Custom Tile Data' : 'Tile Data'}
+                  {user.subscription === 'pro' && selectedTile === null ? 'Input Custom Tile' : 'Tile Data'}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Grid container spacing={3}>
-                  {isCustomTile && (
-                    <Grid item xs={12}>
-                      <TextField
-                        label="Tile Name"
-                        value={inputs.tileName}
-                        onChange={(e) => setInputs({ ...inputs, tileName: e.target.value })}
-                        fullWidth
-                        required
-                        variant="outlined"
-                      />
-                    </Grid>
-                  )}
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Tile Name"
+                      value={inputs.tileName}
+                      onChange={(e) => setInputs({ ...inputs, tileName: e.target.value })}
+                      fullWidth
+                      required
+                      variant="outlined"
+                    />
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <Tooltip title="Select the type of material">
                       <FormControl fullWidth>
@@ -880,7 +857,7 @@ const Calculator: React.FC = () => {
                       />
                     </Tooltip>
                   </Grid>
-                  {user.subscription === 'pro' && isCustomTile && (
+                  {user.subscription === 'pro' && (
                     <Grid item xs={12}>
                       <Button
                         variant="contained"
