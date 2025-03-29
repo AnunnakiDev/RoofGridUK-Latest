@@ -42,9 +42,13 @@ const Login: React.FC = () => {
         token: token,
         role: decoded.role,
         subscription: decoded.subscription,
-        email: decoded.email, // Include email in the user context
+        email: decoded.email,
       });
-      navigate('/calculator');
+      if (decoded.role === 'admin') {
+        navigate('/admin/profile');
+      } else {
+        navigate('/calculator');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
     }

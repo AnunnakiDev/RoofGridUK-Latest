@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Menu, MenuItem } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useUser } from '../context/UserContext';
+import WeatherWidget from './WeatherWidget';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useUser();
@@ -25,12 +26,11 @@ const Navbar: React.FC = () => {
 
   const navItems = [
     { label: 'Home', path: '/' },
+    { label: 'Calculator', path: '/calculator' },
     { label: 'How to Use', path: '/how-to-use' },
     { label: 'App Benefits', path: '/app-benefits' },
     { label: 'Pro Tips', path: '/pro-tips' },
     { label: 'Resources', path: '/resources' },
-    { label: 'Contact', path: '/contact' },
-    { label: 'Calculator', path: '/calculator' },
   ];
 
   const userItems = user.id
@@ -40,7 +40,7 @@ const Navbar: React.FC = () => {
       ]
     : [
         { label: 'Login', path: '/login' },
-        { label: 'Register', path: '/register' },
+        { label: 'Sign Up', path: '/register' },
       ];
 
   return (
@@ -60,7 +60,7 @@ const Navbar: React.FC = () => {
           RoofGrid UK
         </Typography>
         {/* Desktop Navigation */}
-        <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
           {navItems.map((item) => (
             <Button
               key={item.label}
@@ -81,9 +81,11 @@ const Navbar: React.FC = () => {
               {item.label}
             </Button>
           ))}
+          <WeatherWidget />
         </Box>
         {/* Mobile Navigation */}
-        <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
+        <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
+          <WeatherWidget />
           <IconButton
             size="large"
             edge="start"

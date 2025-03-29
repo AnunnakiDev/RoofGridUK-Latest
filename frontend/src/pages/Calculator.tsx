@@ -144,34 +144,55 @@ const Calculator: React.FC = () => {
   const [settingsExpandedResults, setSettingsExpandedResults] = useState(false);
 
   useEffect(() => {
-    if (location.state && (location.state as { project: Project }).project) {
-      const { project } = location.state as { project: Project };
-      setProjectName(project.projectName);
-      setInputs({
-        ...inputs,
-        rafterHeights: project.rafterHeights,
-        widths: project.widths,
-        gutterOverhang: project.settings.gutterOverhang,
-        useDryRidge: project.settings.useDryRidge,
-        leftVergeType: project.settings.leftVergeType,
-        rightVergeType: project.settings.rightVergeType,
-        useLHTile: project.settings.useLHTile,
-        lhTileWidth: project.settings.lhTileWidth,
-      });
-      setResults({
-        vertical: project.verticalResults,
-        horizontal: project.horizontalResults,
-        totalCourses: project.totalResults?.totalCourses || 0,
-        totalTiles: project.totalResults?.totalTiles || 0,
-        halfTiles: project.totalResults?.halfTiles || 0,
-      });
-      setActiveStep(3);
-      setTileDataExpandedResults(true);
-      setSettingsExpandedResults(true);
+    if (location.state) {
+      if ((location.state as { project: Project }).project) {
+        const { project } = location.state as { project: Project };
+        setProjectName(project.projectName);
+        setInputs({
+          ...inputs,
+          rafterHeights: project.rafterHeights,
+          widths: project.widths,
+          gutterOverhang: project.settings.gutterOverhang,
+          useDryRidge: project.settings.useDryRidge,
+          leftVergeType: project.settings.leftVergeType,
+          rightVergeType: project.settings.rightVergeType,
+          useLHTile: project.settings.useLHTile,
+          lhTileWidth: project.settings.lhTileWidth,
+        });
+        setResults({
+          vertical: project.verticalResults,
+          horizontal: project.horizontalResults,
+          totalCourses: project.totalResults?.totalCourses || 0,
+          totalTiles: project.totalResults?.totalTiles || 0,
+          halfTiles: project.totalResults?.totalCourses || 0,
+        });
+        setActiveStep(3);
+        setTileDataExpandedResults(true);
+        setSettingsExpandedResults(true);
+      } else if ((location.state as { tile: Tile }).tile) {
+        const { tile } = location.state as { tile: Tile };
+        setInputs({
+          ...inputs,
+          tileSelection: tile.id.toString(),
+          tileName: tile.name,
+          materialType: tile.type,
+          slateTileHeight: tile.length,
+          tileCoverWidth: tile.width,
+          minGauge: tile.mingauge ?? 75,
+          maxGauge: tile.maxgauge ?? 325,
+          minSpacing: tile.minspacing ?? 3,
+          maxSpacing: tile.maxspacing ?? 7,
+          lhTileWidth: tile.lhTileWidth,
+          crossBonded: tile.crossbonded as 'YES' | 'NO',
+        });
+        setSelectedTile({ ...tile, isPersonal: true });
+        setIsTileDataExpanded(true);
+        setActiveStep(0); // Stay on "Choose Tile" step to show prefilled data
+      }
     }
   }, [location.state]);
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchTiles = async () => {
       try {
         const defaultTilesResponse = await api.get('/api/tiles');

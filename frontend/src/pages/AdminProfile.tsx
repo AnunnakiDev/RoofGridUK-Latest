@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  TextField,
-  Button,
   Alert,
   Container,
   Accordion,
@@ -23,6 +21,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  TextField,
+  Button,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditIcon from '@mui/icons-material/Edit';
@@ -32,14 +32,6 @@ import api from '../services/api';
 import { useUser } from '../context/UserContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-
-interface UserProfile {
-  id: number;
-  username: string;
-  email: string;
-  role: string;
-  subscription: string;
-}
 
 interface Project {
   id: number;
@@ -72,7 +64,7 @@ interface Project {
   } | null;
 }
 
-interface CustomTile {
+interface Tile {
   id: number;
   name: string;
   type: string;
@@ -84,42 +76,36 @@ interface CustomTile {
   maxspacing: number;
   lhTileWidth: number;
   crossbonded: 'YES' | 'NO';
+  isPersonal?: boolean;
 }
 
-const Profile: React.FC = () => {
-  const { user, setUser, logout } = useUser();
+const AdminProfile: React.FC = () => {
+  const { user } = useUser();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [personalTiles, setPersonalTiles] = useState<Tile[]>([]);
+  const [defaultTiles, setDefaultTiles] = useState<Tile[]>([]);
+  const [filteredTiles, setFilteredTiles] = useState<Tile[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tiles, setTiles] = useState<CustomTile[]>([]);
-  const [open, setOpen] = useState(false);
-  const [selectedTile, setSelectedTile] = useState<CustomTile | null>(null);
+  const [openTileDialog, setOpenTileDialog] = useState(false);
+  const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
+  const [newTile, setNewTile] = useState<Tile | null>(null);
   const [expanded, setExpanded] = useState<number | false>(false);
   const [tileDataExpanded, setTileDataExpanded] = useState<number | false>(false);
   const [settingsExpanded, setSettingsExpanded] = useState<number | false>(false);
+  const [expandedType, setExpandedType] = useState<string | false>(false);
 
   useEffect(() => {
     if (!user.id) {
       navigate('/login');
       return;
     }
-
-    const fetchProfile = async () => {
-      try {
-        const response = await api.get('/api/auth/profile');
-        setProfile(response.data);
-        setUsername(response.data.username);
-        setEmail(response.data.email);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to fetch profile');
-      }
-    };
+    if (user.role !== 'admin') {
+      navigate('/profile');
+      return;
+    }
 
     const fetchProjects = async () => {
       try {
@@ -130,64 +116,77 @@ const Profile: React.FC = () => {
       }
     };
 
-    const fetchTiles = async () => {
+    const fetchPersonalTiles = async () => {
       try {
         const response = await api.get('/api/users/tiles');
-        setTiles(response.data);
+        const tilesWithFlag = response.data.map((tile: Tile) => ({
+          ...tile,
+          isPersonal: true,
+          type: normalizeTileType(tile.type),
+        }));
+        setPersonalTiles(tilesWithFlag);
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to fetch custom tiles');
+        setError(err.response?.data?.message || 'Failed to fetch personal tiles');
       }
     };
 
-    fetchProfile();
+    const fetchDefaultTiles = async () => {
+      try {
+        const response = await api.get('/api/tiles');
+        const normalizedTiles = response.data.map((tile: Tile) => ({
+          ...tile,
+          type: normalizeTileType(tile.type),
+        }));
+        const sortedTiles = normalizedTiles.sort((a: Tile, b: Tile) => {
+          const typeA = a.type.toLowerCase();
+          const typeB = b.type.toLowerCase();
+          if (typeA < typeB) return -1;
+          if (typeA > typeB) return 1;
+          const nameA = a.name.toLowerCase();
+          const nameB = b.name.toLowerCase();
+          return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+        });
+        setDefaultTiles(sortedTiles);
+        setFilteredTiles(sortedTiles);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch default tiles');
+      }
+    };
+
     fetchProjects();
     if (user.subscription === 'pro') {
-      fetchTiles();
+      fetchPersonalTiles();
     }
-  }, [user.id, user.subscription, navigate]);
+    fetchDefaultTiles();
+  }, [user.id, user.role, user.subscription, navigate]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+  useEffect(() => {
+    // Filter tiles based on search query
+    const filtered = defaultTiles.filter((tile) =>
+      tile.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredTiles(filtered);
+  }, [searchQuery, defaultTiles]);
 
-    try {
-      const response = await api.put('/api/auth/profile', { username, email });
-      const token = response.data.token;
-      setUser({
-        id: user.id,
-        token: token,
-        role: user.role,
-        subscription: user.subscription,
-        email: email,
-      });
-      setSuccess('Profile updated successfully');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+  const normalizeTileType = (type: string): string => {
+    switch (type.toLowerCase()) {
+      case 'fibre-cement-slate':
+        return 'Fibre Cement Slate';
+      case 'interlocking-tile':
+        return 'Interlocking Tile';
+      case 'plain-tile':
+        return 'Plain Tile';
+      case 'slate':
+        return 'Slate';
+      case 'tile':
+        return 'Tile';
+      default:
+        return type; // Fallback, though this should not happen with predefined types
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const response = await api.put('/api/auth/change-password', { currentPassword, newPassword });
-      const token = response.data.token;
-      setUser({
-        id: user.id,
-        token: token,
-        role: user.role,
-        subscription: user.subscription,
-        email: user.email,
-      });
-      setSuccess('Password updated successfully');
-      setCurrentPassword('');
-      setNewPassword('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update password');
-    }
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
 
   const handleProjectEdit = (project: Project) => {
@@ -206,68 +205,141 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleTileEdit = (tile: CustomTile) => {
-    setSelectedTile(tile);
-    setOpen(true);
+  const handlePersonalTileEdit = (tile: Tile) => {
+    console.log('Editing personal tile:', tile);
+    setSelectedTile({ ...tile, isPersonal: true });
+    setNewTile(null);
+    setOpenTileDialog(true);
   };
 
-  const handleTileDelete = async (tileId: number) => {
+  const handlePersonalTileDelete = async (tileId: number) => {
     if (window.confirm('Are you sure you want to delete this tile?')) {
       try {
         await api.delete(`/api/users/tiles/${tileId}`);
-        setTiles(tiles.filter((tile) => tile.id !== tileId));
-        setSuccess('Tile deleted successfully');
+        setPersonalTiles(personalTiles.filter((tile) => tile.id !== tileId));
+        setSuccess('Personal tile deleted successfully');
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete tile');
+        setError(err.response?.data?.message || 'Failed to delete personal tile');
       }
     }
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const handlePersonalTileCalculate = (tile: Tile) => {
+    navigate('/calculator', { state: { tile } });
+  };
+
+  const handleDefaultTileAdd = () => {
     setSelectedTile(null);
+    setNewTile({
+      id: 0,
+      name: '',
+      type: '',
+      length: 0,
+      width: 0,
+      mingauge: 75,
+      maxgauge: 325,
+      minspacing: 3,
+      maxspacing: 7,
+      lhTileWidth: 0,
+      crossbonded: 'NO',
+    });
+    setOpenTileDialog(true);
+  };
+
+  const handleDefaultTileEdit = (tile: Tile) => {
+    console.log('Editing default tile:', tile);
+    setSelectedTile({ ...tile, isPersonal: false });
+    setNewTile(null);
+    setOpenTileDialog(true);
+  };
+
+  const handleDefaultTileDelete = async (tileId: number) => {
+    if (window.confirm('Are you sure you want to delete this tile?')) {
+      try {
+        await api.delete(`/api/tiles/${tileId}`);
+        setDefaultTiles(defaultTiles.filter((tile) => tile.id !== tileId));
+        setFilteredTiles(filteredTiles.filter((tile) => tile.id !== tileId));
+        setSuccess('Default tile deleted successfully');
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to delete default tile');
+      }
+    }
+  };
+
+  const handleTileDialogClose = () => {
+    setOpenTileDialog(false);
+    setSelectedTile(null);
+    setNewTile(null);
   };
 
   const handleTileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTile) return;
-  
-    const payload = {
-      name: selectedTile.name,
-      type: selectedTile.type,
-      length: Number(selectedTile.length),
-      width: Number(selectedTile.width),
-      mingauge: Number(selectedTile.mingauge),
-      maxgauge: Number(selectedTile.maxgauge),
-      minspacing: Number(selectedTile.minspacing),
-      maxspacing: Number(selectedTile.maxspacing),
-      lhTileWidth: Number(selectedTile.lhTileWidth),
-      crossbonded: selectedTile.crossbonded,
-    };
-  
-    console.log('Sending edit payload:', payload);
-  
-    try {
-      const response = await api.put(`/api/users/tiles/${selectedTile.id}`, payload);
-      console.log('Edit response:', response.data);
-      setTiles(tiles.map((tile) => (tile.id === selectedTile.id ? response.data : tile)));
-      setSuccess('Tile updated successfully');
-      handleClose();
-    } catch (err: any) {
-      console.error('Error updating tile:', err);
-      console.error('Error response:', err.response?.data);
-      setError(err.response?.data?.message || 'Failed to update tile');
+    if (newTile) {
+      // Add new default tile
+      const payload = {
+        name: newTile.name,
+        type: newTile.type,
+        length: Number(newTile.length),
+        width: Number(newTile.width),
+        mingauge: Number(newTile.mingauge),
+        maxgauge: Number(newTile.maxgauge),
+        minspacing: Number(newTile.minspacing),
+        maxspacing: Number(newTile.maxspacing),
+        lhTileWidth: Number(newTile.lhTileWidth),
+        crossbonded: newTile.crossbonded,
+      };
+      try {
+        const response = await api.post('/api/tiles', payload);
+        const newTileData = { ...response.data, type: normalizeTileType(response.data.type) };
+        setDefaultTiles([...defaultTiles, newTileData]);
+        setFilteredTiles([...filteredTiles, newTileData]);
+        setSuccess('Default tile added successfully');
+        handleTileDialogClose();
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to add default tile');
+      }
+    } else if (selectedTile) {
+      // Edit existing tile (personal or default)
+      const payload = {
+        name: selectedTile.name,
+        type: selectedTile.type,
+        length: Number(selectedTile.length),
+        width: Number(selectedTile.width),
+        mingauge: Number(selectedTile.mingauge),
+        maxgauge: Number(selectedTile.maxgauge),
+        minspacing: Number(selectedTile.minspacing),
+        maxspacing: Number(selectedTile.maxspacing),
+        lhTileWidth: Number(selectedTile.lhTileWidth),
+        crossbonded: selectedTile.crossbonded,
+      };
+      try {
+        if (selectedTile.isPersonal) {
+          // Personal tile
+          const response = await api.put(`/api/users/tiles/${selectedTile.id}`, payload);
+          const updatedTile = { ...response.data, isPersonal: true, type: normalizeTileType(response.data.type) };
+          setPersonalTiles(personalTiles.map((tile) => (tile.id === selectedTile.id ? updatedTile : tile)));
+          setSuccess('Personal tile updated successfully');
+        } else {
+          // Default tile
+          const response = await api.put(`/api/tiles/${selectedTile.id}`, payload);
+          const updatedTile = { ...response.data, type: normalizeTileType(response.data.type) };
+          setDefaultTiles(defaultTiles.map((tile) => (tile.id === selectedTile.id ? updatedTile : tile)));
+          setFilteredTiles(filteredTiles.map((tile) => (tile.id === selectedTile.id ? updatedTile : tile)));
+          setSuccess('Default tile updated successfully');
+        }
+        handleTileDialogClose();
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to update tile');
+      }
     }
   };
 
-  const handleTileChange = (field: keyof CustomTile, value: any) => {
-    if (selectedTile) {
+  const handleTileChange = (field: keyof Tile, value: any) => {
+    if (newTile) {
+      setNewTile({ ...newTile, [field]: value });
+    } else if (selectedTile) {
       setSelectedTile({ ...selectedTile, [field]: value });
     }
-  };
-
-  const handleCalculateWithTile = (tile: CustomTile) => {
-    navigate('/calculator', { state: { tile } });
   };
 
   const handleExpand = (projectId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -289,9 +361,21 @@ const Profile: React.FC = () => {
     setSettingsExpanded(isExpanded ? projectId : false);
   };
 
-  if (!profile) {
-    return null; // Or a loading spinner
-  }
+  const handleTypeExpand = (type: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setExpandedType(isExpanded ? type : false);
+  };
+
+  // Group tiles by type
+  const tilesByType = filteredTiles.reduce((acc: { [key: string]: Tile[] }, tile: Tile) => {
+    if (!acc[tile.type]) {
+      acc[tile.type] = [];
+    }
+    acc[tile.type].push(tile);
+    return acc;
+  }, {});
+
+  // Sort types alphabetically
+  const sortedTypes = Object.keys(tilesByType).sort();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -305,10 +389,10 @@ const Profile: React.FC = () => {
       >
         <Container maxWidth="lg" sx={{ py: 4 }}>
           <Typography variant="h4" align="center" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-            User Profile
+            Admin Profile
           </Typography>
           <Typography align="center" sx={{ mb: 4, color: 'text.secondary' }}>
-            Welcome back {profile.username}, manage your saved projects and custom tiles. Update contact preferences and more.
+            Welcome back {user.email}, manage default tiles, users, and your saved projects and personal tiles.
           </Typography>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
@@ -435,7 +519,7 @@ const Profile: React.FC = () => {
                                         </TableCell>
                                       </TableRow>
                                       <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Right Verge Wet</TableCell>
+                                        <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Right Verge</TableCell>
                                         <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
                                           {project.settings.rightVergeType}
                                         </TableCell>
@@ -596,90 +680,6 @@ const Profile: React.FC = () => {
                             </AccordionDetails>
                           </Accordion>
                         )}
-                        {/* Horizontal Results */}
-                        {project.widths.some((w: number) => w > 0) && project.horizontalResults && (
-                          <Accordion sx={{ mb: 1 }}>
-                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
-                                Horizontal Results
-                              </Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                              {project.horizontalResults.solution.widthResults.map((r: any, index: number) => (
-                                project.widths[index] > 0 && (
-                                  <Accordion key={index} sx={{ mb: 1 }}>
-                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                      <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
-                                        Width {index + 1}
-                                      </Typography>
-                                    </AccordionSummary>
-                                    <AccordionDetails>
-                                      <Box sx={{ overflowX: 'auto' }}>
-                                        <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
-                                          <TableBody>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Starting Width</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {project.widths[index]} mm
-                                              </TableCell>
-                                            </TableRow>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Final Width</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {project.widths[index] + r.overhangLeft + r.overhangRight} mm
-                                              </TableCell>
-                                            </TableRow>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total Tiles Wide</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {project.horizontalResults.tilesWide}
-                                              </TableCell>
-                                            </TableRow>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Left Overhang</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {r.overhangLeft} mm
-                                              </TableCell>
-                                            </TableRow>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Right Overhang</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {r.overhangRight} mm
-                                              </TableCell>
-                                            </TableRow>
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>1st Mark</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {r.firstMark} mm
-                                              </TableCell>
-                                            </TableRow>
-                                            {r.secondMark && (
-                                              <TableRow>
-                                                <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>2nd Mark</TableCell>
-                                                <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                  {r.secondMark} mm
-                                                </TableCell>
-                                              </TableRow>
-                                            )}
-                                            <TableRow>
-                                              <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Chalk Marks</TableCell>
-                                              <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                                {r.totalSets} @ {r.adjustedMarks} mm
-                                              </TableCell>
-                                            </TableRow>
-                                          </TableBody>
-                                        </Table>
-                                      </Box>
-                                      <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                                        *measure from LH brickwork, Marks In sets of {project.horizontalResults.setSize}
-                                      </Typography>
-                                    </AccordionDetails>
-                                  </Accordion>
-                                )
-                              ))}
-                            </AccordionDetails>
-                          </Accordion>
-                        )}
                       </AccordionDetails>
                     </Accordion>
                   ))}
@@ -688,22 +688,22 @@ const Profile: React.FC = () => {
             </AccordionDetails>
           </Accordion>
 
-          {/* Custom Tiles Section (Pro Users Only) */}
+          {/* Personal Tiles Section (Pro Users Only) */}
           {user.subscription === 'pro' && (
             <Accordion sx={{ mb: 2 }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
-                  Custom Tiles
+                  Personal Tiles
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
-                {tiles.length === 0 ? (
+                {personalTiles.length === 0 ? (
                   <Typography align="center" color="text.secondary">
-                    No custom tiles found. Add a new tile in the Calculator.
+                    No personal tiles found. Add a new tile in the Calculator.
                   </Typography>
                 ) : (
                   <Box>
-                    {tiles.map((tile) => (
+                    {personalTiles.map((tile) => (
                       <Accordion key={tile.id} sx={{ mb: 1 }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
@@ -711,10 +711,10 @@ const Profile: React.FC = () => {
                               {tile.name}
                             </Typography>
                             <Box>
-                              <IconButton onClick={(e) => { e.stopPropagation(); handleTileEdit(tile); }} color="primary">
+                              <IconButton onClick={(e) => { e.stopPropagation(); handlePersonalTileEdit(tile); }} color="primary">
                                 <EditIcon />
                               </IconButton>
-                              <IconButton onClick={(e) => { e.stopPropagation(); handleTileDelete(tile.id); }} color="error">
+                              <IconButton onClick={(e) => { e.stopPropagation(); handlePersonalTileDelete(tile.id); }} color="error">
                                 <DeleteIcon />
                               </IconButton>
                             </Box>
@@ -785,7 +785,7 @@ const Profile: React.FC = () => {
                             <Button
                               variant="contained"
                               color="primary"
-                              onClick={() => handleTileEdit(tile)}
+                              onClick={() => handlePersonalTileEdit(tile)}
                               sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
                             >
                               Edit
@@ -793,7 +793,7 @@ const Profile: React.FC = () => {
                             <Button
                               variant="contained"
                               color="primary"
-                              onClick={() => handleCalculateWithTile(tile)}
+                              onClick={() => handlePersonalTileCalculate(tile)}
                               sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
                             >
                               Calculate
@@ -808,109 +808,165 @@ const Profile: React.FC = () => {
             </Accordion>
           )}
 
-          {/* Update Profile Section (with Change Password) */}
+          {/* Tile Management Section (Admin Only) */}
           <Accordion sx={{ mb: 2 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
-                Update Profile
+                Tile Management
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <Box>
-                {/* Update Profile Form */}
-                <Typography variant="h6" sx={{ fontWeight: 'medium', mb: 2 }}>
-                  Update Contact Information
-                </Typography>
-                <form onSubmit={handleProfileSubmit}>
-                  <TextField
-                    label="Username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    fullWidth
-                    margin="normal"
-                    required
-                    variant="outlined"
-                  />
-                  <TextField
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    fullWidth
-                    margin="normal"
-                    required
-                    variant="outlined"
-                  />
-                  <TextField
-                    label="Subscription"
-                    value={profile.subscription}
-                    fullWidth
-                    margin="normal"
-                    variant="outlined"
-                    disabled
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    sx={{ mt: 2, py: 1.5, fontSize: '1.2rem' }}
-                  >
-                    Update Profile
-                  </Button>
-                </form>
-
-                {/* Change Password Form */}
-                <Typography variant="h6" sx={{ fontWeight: 'medium', mt: 4, mb: 2 }}>
-                  Change Password
-                </Typography>
-                <form onSubmit={handlePasswordSubmit}>
-                  <TextField
-                    label="Current Password"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    fullWidth
-                    margin="normal"
-                    required
-                    variant="outlined"
-                  />
-                  <TextField
-                    label="New Password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    fullWidth
-                    margin="normal"
-                    required
-                    variant="outlined"
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    sx={{ mt: 2, py: 1.5, fontSize: '1.2rem' }}
-                  >
-                    Change Password
-                  </Button>
-                </form>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <TextField
+                  label="Search Tiles"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  sx={{ width: '300px' }}
+                  variant="outlined"
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleDefaultTileAdd}
+                  sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
+                >
+                  Add New Tile
+                </Button>
               </Box>
+              {sortedTypes.length === 0 ? (
+                <Typography align="center" color="text.secondary">
+                  No default tiles found. Add a new tile to get started.
+                </Typography>
+              ) : (
+                <Box>
+                  {sortedTypes.map((type) => (
+                    <Accordion
+                      key={type}
+                      expanded={expandedType === type}
+                      onChange={handleTypeExpand(type)}
+                      sx={{ mb: 1 }}
+                    >
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'primary.main' }}>
+                          {type} ({tilesByType[type].length})
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        {tilesByType[type].map((tile) => (
+                          <Accordion key={tile.id} sx={{ mb: 1 }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'primary.main' }}>
+                                  {tile.name}
+                                </Typography>
+                                <Box>
+                                  <IconButton onClick={(e) => { e.stopPropagation(); handleDefaultTileEdit(tile); }} color="primary">
+                                    <EditIcon />
+                                  </IconButton>
+                                  <IconButton onClick={(e) => { e.stopPropagation(); handleDefaultTileDelete(tile.id); }} color="error">
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Box>
+                              </Box>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Box sx={{ overflowX: 'auto' }}>
+                                <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
+                                  <TableBody>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Material Type</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.type}
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Length</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.length} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.width} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Gauge</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.mingauge ?? 75} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Gauge</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.maxgauge ?? 325} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Spacing</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.minspacing ?? 3} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Spacing</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.maxspacing ?? 7} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>LH Tile Width</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.lhTileWidth} mm
+                                      </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                      <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Cross-Bonded</TableCell>
+                                      <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                        {tile.crossbonded}
+                                      </TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </Box>
+                            </AccordionDetails>
+                          </Accordion>
+                        ))}
+                      </AccordionDetails>
+                    </Accordion>
+                  ))}
+                </Box>
+              )}
+            </AccordionDetails>
+          </Accordion>
+
+          {/* User Management Section (Placeholder) */}
+          <Accordion sx={{ mb: 2 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+                User Management
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography align="center" color="text.secondary">
+                User management features coming soon.
+              </Typography>
             </AccordionDetails>
           </Accordion>
         </Container>
       </Box>
       <Footer />
 
-      {/* Edit Tile Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Tile</DialogTitle>
+      {/* Tile Dialog (Add/Edit) */}
+      <Dialog open={openTileDialog} onClose={handleTileDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{newTile ? 'Add Default Tile' : 'Edit Tile'}</DialogTitle>
         <DialogContent>
-          {selectedTile && (
+          {(selectedTile || newTile) && (
             <Box component="form" onSubmit={handleTileSubmit} sx={{ mt: 2 }}>
               <TextField
                 label="Name"
-                value={selectedTile.name}
+                value={newTile ? newTile.name : selectedTile?.name || ''}
                 onChange={(e) => handleTileChange('name', e.target.value)}
                 fullWidth
                 margin="normal"
@@ -919,7 +975,7 @@ const Profile: React.FC = () => {
               <FormControl fullWidth margin="normal">
                 <InputLabel>Type</InputLabel>
                 <Select
-                  value={selectedTile.type}
+                  value={newTile ? newTile.type : (selectedTile?.type || '')}
                   onChange={(e) => handleTileChange('type', e.target.value)}
                   required
                 >
@@ -927,12 +983,13 @@ const Profile: React.FC = () => {
                   <MenuItem value="Tile">Tile</MenuItem>
                   <MenuItem value="Fibre Cement Slate">Fibre Cement Slate</MenuItem>
                   <MenuItem value="Plain Tile">Plain Tile</MenuItem>
+                  <MenuItem value="Interlocking Tile">Interlocking Tile</MenuItem>
                 </Select>
               </FormControl>
               <TextField
                 label="Length (mm)"
                 type="number"
-                value={selectedTile.length}
+                value={newTile ? newTile.length : selectedTile?.length || 0}
                 onChange={(e) => handleTileChange('length', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -942,7 +999,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="Width (mm)"
                 type="number"
-                value={selectedTile.width}
+                value={newTile ? newTile.width : selectedTile?.width || 0}
                 onChange={(e) => handleTileChange('width', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -952,7 +1009,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="Min Gauge (mm)"
                 type="number"
-                value={selectedTile.mingauge}
+                value={newTile ? newTile.mingauge : selectedTile?.mingauge || 0}
                 onChange={(e) => handleTileChange('mingauge', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -962,7 +1019,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="Max Gauge (mm)"
                 type="number"
-                value={selectedTile.maxgauge}
+                value={newTile ? newTile.maxgauge : selectedTile?.maxgauge || 0}
                 onChange={(e) => handleTileChange('maxgauge', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -972,7 +1029,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="Min Spacing (mm)"
                 type="number"
-                value={selectedTile.minspacing}
+                value={newTile ? newTile.minspacing : selectedTile?.minspacing || 0}
                 onChange={(e) => handleTileChange('minspacing', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -982,7 +1039,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="Max Spacing (mm)"
                 type="number"
-                value={selectedTile.maxspacing}
+                value={newTile ? newTile.maxspacing : selectedTile?.maxspacing || 0}
                 onChange={(e) => handleTileChange('maxspacing', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -992,7 +1049,7 @@ const Profile: React.FC = () => {
               <TextField
                 label="LH Tile Width (mm)"
                 type="number"
-                value={selectedTile.lhTileWidth}
+                value={newTile ? newTile.lhTileWidth : selectedTile?.lhTileWidth || 0}
                 onChange={(e) => handleTileChange('lhTileWidth', Number(e.target.value))}
                 fullWidth
                 margin="normal"
@@ -1001,7 +1058,7 @@ const Profile: React.FC = () => {
               <FormControl fullWidth margin="normal">
                 <InputLabel>Cross-Bonded</InputLabel>
                 <Select
-                  value={selectedTile.crossbonded}
+                  value={newTile ? newTile.crossbonded : selectedTile?.crossbonded || 'NO'}
                   onChange={(e) => handleTileChange('crossbonded', e.target.value as 'YES' | 'NO')}
                   required
                 >
@@ -1013,7 +1070,7 @@ const Profile: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} color="secondary">
+          <Button onClick={handleTileDialogClose} color="secondary">
             Cancel
           </Button>
           <Button onClick={handleTileSubmit} color="primary">
@@ -1025,4 +1082,4 @@ const Profile: React.FC = () => {
   );
 };
 
-export default Profile;
+export default AdminProfile;

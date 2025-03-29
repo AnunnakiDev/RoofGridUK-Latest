@@ -153,6 +153,117 @@ router.post('/tiles', authenticateToken, async (req, res) => {
   }
 });
 
+router.put('/tiles/:id', authenticateToken, async (req, res) => {
+  if (req.user.subscription === 'free') {
+    return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
+  }
+  const { id } = req.params;
+  const {
+    name,
+    type,
+    length,
+    width,
+    mingauge,
+    maxgauge,
+    minspacing,
+    maxspacing,
+    lhTileWidth,
+    crossbonded,
+  } = req.body;
+  const userId = req.user.id;
+
+  try {
+    console.log('Received request to update personal tile:', id, 'for user:', userId);
+    console.log('Request payload:', req.body);
+
+    // Validate required fields
+    if (!name || !type || !length || !width || lhTileWidth === undefined || !crossbonded) {
+      console.log('Validation failed: Missing required fields');
+      return res.status(400).json({
+        message: 'Missing required fields',
+        missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded }
+      });
+    }
+
+    // Validate data types and constraints
+    if (!['YES', 'NO'].includes(crossbonded)) {
+      console.log('Validation failed: Invalid crossbonded value:', crossbonded);
+      return res.status(400).json({ message: 'crossbonded must be "YES" or "NO"' });
+    }
+    if (isNaN(length) || !Number.isInteger(length) || length <= 0) {
+      console.log('Validation failed: Invalid length:', length);
+      return res.status(400).json({ message: 'length must be a positive integer' });
+    }
+    if (isNaN(width) || !Number.isInteger(width) || width <= 0) {
+      console.log('Validation failed: Invalid width:', width);
+      return res.status(400).json({ message: 'width must be a positive integer' });
+    }
+    if (isNaN(lhTileWidth) || !Number.isInteger(lhTileWidth) || lhTileWidth < 0) {
+      console.log('Validation failed: Invalid lhTileWidth:', lhTileWidth);
+      return res.status(400).json({ message: 'lhTileWidth must be a non-negative integer' });
+    }
+    if (mingauge !== null && (isNaN(mingauge) || !Number.isInteger(mingauge) || mingauge < 0)) {
+      console.log('Validation failed: Invalid mingauge:', mingauge);
+      return res.status(400).json({ message: 'mingauge must be a non-negative integer or null' });
+    }
+    if (maxgauge !== null && (isNaN(maxgauge) || !Number.isInteger(maxgauge) || maxgauge < 0)) {
+      console.log('Validation failed: Invalid maxgauge:', maxgauge);
+      return res.status(400).json({ message: 'maxgauge must be a non-negative integer or null' });
+    }
+    if (minspacing !== null && (isNaN(minspacing) || !Number.isInteger(minspacing) || minspacing < 0)) {
+      console.log('Validation failed: Invalid minspacing:', minspacing);
+      return res.status(400).json({ message: 'minspacing must be a non-negative integer or null' });
+    }
+    if (maxspacing !== null && (isNaN(maxspacing) || !Number.isInteger(maxspacing) || maxspacing < 0)) {
+      console.log('Validation failed: Invalid maxspacing:', maxspacing);
+      return res.status(400).json({ message: 'maxspacing must be a non-negative integer or null' });
+    }
+
+    // Check if tile exists and belongs to user
+    const existingTile = await userTile.findOne({
+      where: { id, userId },
+    });
+
+    if (!existingTile) {
+      console.log('Tile not found or not owned by user:', id);
+      return res.status(404).json({ message: 'Tile not found or you do not have permission to edit it' });
+    }
+
+    // Update the tile
+    const updatedTile = await userTile.update(
+      {
+        name,
+        type,
+        length,
+        width,
+        mingauge,
+        maxgauge,
+        minspacing,
+        maxspacing,
+        lhTileWidth,
+        crossbonded,
+      },
+      {
+        where: { id, userId },
+        returning: true,
+      }
+    );
+
+    if (updatedTile[0] === 0) {
+      console.log('Tile update failed, no rows affected:', id);
+      return res.status(500).json({ message: 'Failed to update tile' });
+    }
+
+    console.log('Updated tile successfully:', updatedTile[1][0].toJSON());
+    res.json(updatedTile[1][0]);
+  } catch (err) {
+    console.error('Error updating personal tile:', err.message);
+    console.error('Stack trace:', err.stack);
+    console.error('Request payload causing error:', req.body);
+    res.status(500).json({ message: 'Error updating personal tile', error: err.message });
+  }
+});
+
 router.delete('/tiles/:id', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
