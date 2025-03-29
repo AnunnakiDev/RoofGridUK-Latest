@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 
 // Load bcryptjs and log any issues
-let bcrypt;
+let bcrypt; // Renamed from 'user' to 'bcrypt'
 try {
   bcrypt = require('bcryptjs');
   console.log('bcryptjs loaded successfully');
@@ -12,26 +12,9 @@ try {
   throw error;
 }
 
-const { user } = require('../db');
+const { user } = require('../db'); // No conflict now
 const Sequelize = require('sequelize');
-
-// Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication token required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user data to request
-    next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
-  }
-};
+const { authenticateToken } = require('../middleware/auth');
 
 // Register a new user
 router.post('/register', async (req, res) => {
@@ -68,7 +51,7 @@ router.post('/register', async (req, res) => {
 
     // Hash the password
     console.log('Hashing password for user:', username);
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10); // Use 'bcrypt' here
     console.log('Password hashed successfully:', hashedPassword);
 
     // Create the new user
@@ -125,7 +108,7 @@ router.post('/login', async (req, res) => {
 
     // Compare the password
     console.log('Comparing password for user:', username);
-    const isMatch = await bcrypt.compare(password, foundUser.password);
+    const isMatch = await bcrypt.compare(password, foundUser.password); // Use 'bcrypt' here
     console.log('Password match:', isMatch);
     if (!isMatch) {
       console.log('Password mismatch for user:', username);
@@ -247,13 +230,13 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     }
 
     // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, foundUser.password);
+    const isMatch = await bcrypt.compare(currentPassword, foundUser.password); // Use 'bcrypt' here
     if (!isMatch) {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
     // Hash the new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10); // Use 'bcrypt' here
 
     // Update the password
     await user.update(

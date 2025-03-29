@@ -44,10 +44,10 @@ interface Tile {
   length: number;
   width: number;
   crossbonded: string;
-  mingauge: number;
-  maxgauge: number;
-  minspacing: number;
-  maxspacing: number;
+  mingauge: number | null;
+  maxgauge: number | null;
+  minspacing: number | null;
+  maxspacing: number | null;
   lhTileWidth: number;
   isPersonal?: boolean;
 }
@@ -63,10 +63,10 @@ interface FormInputs {
   materialType: string;
   slateTileHeight: number;
   tileCoverWidth: number;
-  minGauge: number;
-  maxGauge: number;
-  minSpacing: number;
-  maxSpacing: number;
+  minGauge: number | null;
+  maxGauge: number | null;
+  minSpacing: number | null;
+  maxSpacing: number | null;
   useDryRidge: 'YES' | 'NO';
   leftVergeType: 'Wet' | 'Dry' | 'Abutment';
   rightVergeType: 'Wet' | 'Dry' | 'Abutment';
@@ -105,7 +105,7 @@ const Calculator: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
-  const [isTileDataExpanded, setIsTileDataExpanded] = useState(true); // Expanded by default
+  const [isTileDataExpanded, setIsTileDataExpanded] = useState(true);
   const [verticalExpanded, setVerticalExpanded] = useState(false);
   const [horizontalExpanded, setHorizontalExpanded] = useState(false);
   const [projectName, setProjectName] = useState('');
@@ -143,7 +143,6 @@ const Calculator: React.FC = () => {
   const [tileDataExpandedResults, setTileDataExpandedResults] = useState(false);
   const [settingsExpandedResults, setSettingsExpandedResults] = useState(false);
 
-  // Pre-fill form with project data if passed via state
   useEffect(() => {
     if (location.state && (location.state as { project: Project }).project) {
       const { project } = location.state as { project: Project };
@@ -166,14 +165,12 @@ const Calculator: React.FC = () => {
         totalTiles: project.totalResults?.totalTiles || 0,
         halfTiles: project.totalResults?.halfTiles || 0,
       });
-      setActiveStep(3); // Navigate to Results step
-      // Open Tile Data and Settings accordions by default when pre-filling
+      setActiveStep(3);
       setTileDataExpandedResults(true);
       setSettingsExpandedResults(true);
     }
   }, [location.state]);
 
-  // Fetch tiles for pro users and sort them
   useEffect(() => {
     const fetchTiles = async () => {
       try {
@@ -181,14 +178,12 @@ const Calculator: React.FC = () => {
         const defaultTiles = defaultTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: false }));
         const tilesList = [...defaultTiles];
 
-        // Fetch personal tiles for pro users
         if (user.subscription === 'pro') {
           const personalTilesResponse = await api.get('/api/users/tiles');
           const personalTiles = personalTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: true }));
           tilesList.push(...personalTiles);
         }
 
-        // Deduplicate tiles by name
         const uniqueTilesMap = new Map<string, Tile>();
         tilesList.forEach((tile) => {
           if (!uniqueTilesMap.has(tile.name)) {
@@ -197,7 +192,6 @@ const Calculator: React.FC = () => {
         });
         const uniqueTiles = Array.from(uniqueTilesMap.values());
 
-        // Sort tiles by type and then by name
         uniqueTiles.sort((a: Tile, b: Tile) => {
           const typeA = a.type.toLowerCase();
           const typeB = b.type.toLowerCase();
@@ -215,24 +209,24 @@ const Calculator: React.FC = () => {
       }
     };
 
-    fetchTiles();
+    if (user.subscription === 'pro') {
+      fetchTiles(); // Only fetch for Pro users
+    } else {
+      setTiles([]); // Clear tiles for free users
+    }
   }, [user.subscription]);
-
-  // Auto-collapse Vertical section if all rafter heights are 0
   useEffect(() => {
     if (!inputs.rafterHeights.some(h => h > 0)) {
       setVerticalExpanded(false);
     }
   }, [inputs.rafterHeights]);
 
-  // Auto-collapse Horizontal section if all widths are 0
   useEffect(() => {
     if (!inputs.widths.some(w => w > 0)) {
       setHorizontalExpanded(false);
     }
   }, [inputs.widths]);
 
-  // Update accordion expansion based on tile selection
   useEffect(() => {
     setIsTileDataExpanded(selectedTile === null || selectedTile !== null);
   }, [selectedTile]);
@@ -256,7 +250,7 @@ const Calculator: React.FC = () => {
       });
       return;
     }
-  
+
     setSelectedTile(value);
     let materialType: string;
     switch (value.type.toLowerCase()) {
@@ -276,7 +270,6 @@ const Calculator: React.FC = () => {
       default:
         materialType = value.type;
     }
-    // Ensure crossBonded is always 'YES' or 'NO'
     const crossBondedValue = value.crossbonded === 'YES' || value.crossbonded === 'NO' ? value.crossbonded : 'NO';
     setInputs({
       ...inputs,
@@ -285,10 +278,10 @@ const Calculator: React.FC = () => {
       materialType,
       slateTileHeight: value.length,
       tileCoverWidth: value.width,
-      minGauge: value.mingauge,
-      maxGauge: value.maxgauge,
-      minSpacing: value.minspacing,
-      maxSpacing: value.maxspacing,
+      minGauge: value.mingauge ?? 75,
+      maxGauge: value.maxgauge ?? 325,
+      minSpacing: value.minspacing ?? 3,
+      maxSpacing: value.maxspacing ?? 7,
       lhTileWidth: value.lhTileWidth || 0,
       crossBonded: crossBondedValue as 'YES' | 'NO',
     });
@@ -350,22 +343,22 @@ const Calculator: React.FC = () => {
       if (inputs.tileCoverWidth <= 0) {
         errors.push('Tile Width must be greater than 0.');
       }
-      if (inputs.minGauge <= 0) {
-        errors.push('Min Gauge must be greater than 0.');
+      if (inputs.minGauge !== null && inputs.minGauge <= 0) {
+        errors.push('Min Gauge must be greater than 0 or null.');
       }
-      if (inputs.maxGauge <= 0) {
-        errors.push('Max Gauge must be greater than 0.');
+      if (inputs.maxGauge !== null && inputs.maxGauge <= 0) {
+        errors.push('Max Gauge must be greater than 0 or null.');
       }
-      if (inputs.minGauge > inputs.maxGauge) {
+      if (inputs.minGauge !== null && inputs.maxGauge !== null && inputs.minGauge > inputs.maxGauge) {
         errors.push('Min Gauge must be less than or equal to Max Gauge.');
       }
-      if (inputs.minSpacing <= 0) {
-        errors.push('Min Spacing must be greater than 0.');
+      if (inputs.minSpacing !== null && inputs.minSpacing <= 0) {
+        errors.push('Min Spacing must be greater than 0 or null.');
       }
-      if (inputs.maxSpacing <= 0) {
-        errors.push('Max Spacing must be greater than 0.');
+      if (inputs.maxSpacing !== null && inputs.maxSpacing <= 0) {
+        errors.push('Max Spacing must be greater than 0 or null.');
       }
-      if (inputs.minSpacing > inputs.maxSpacing) {
+      if (inputs.minSpacing !== null && inputs.maxSpacing !== null && inputs.minSpacing > inputs.maxSpacing) {
         errors.push('Min Spacing must be less than or equal to Max Spacing.');
       }
       if (inputs.lhTileWidth < 0) {
@@ -394,24 +387,24 @@ const Calculator: React.FC = () => {
 
   const handleSaveCustomTile = async () => {
     if (!validateStep(0)) return;
-  
+
     try {
       const payload = {
         name: inputs.tileName,
         type: inputs.materialType,
-        length: inputs.slateTileHeight,
-        width: inputs.tileCoverWidth,
-        mingauge: inputs.minGauge,
-        maxgauge: inputs.maxGauge,
-        minspacing: inputs.minSpacing,
-        maxspacing: inputs.maxSpacing,
-        lhTileWidth: inputs.lhTileWidth,
-        crossbonded: inputs.crossBonded || 'NO',
+        length: Number(inputs.slateTileHeight),
+        width: Number(inputs.tileCoverWidth),
+        mingauge: inputs.minGauge !== null ? Number(inputs.minGauge) : null,
+        maxgauge: inputs.maxGauge !== null ? Number(inputs.maxGauge) : null,
+        minspacing: inputs.minSpacing !== null ? Number(inputs.minSpacing) : null,
+        maxspacing: inputs.maxSpacing !== null ? Number(inputs.maxSpacing) : null,
+        lhTileWidth: Number(inputs.lhTileWidth),
+        crossbonded: inputs.crossBonded,
       };
       console.log('Saving custom tile with payload:', payload);
       const response = await api.post('/api/users/tiles', payload);
       console.log('Server response:', response.data);
-      const newTile = { ...response.data, isPersonal: true };
+      const newTile: Tile = { ...response.data, isPersonal: true };
       setTiles((prevTiles) => {
         const updatedTiles = [...prevTiles, newTile];
         updatedTiles.sort((a: Tile, b: Tile) => {
@@ -436,62 +429,18 @@ const Calculator: React.FC = () => {
     } catch (err: any) {
       console.error('Error saving custom tile:', err);
       console.error('Error response:', err.response?.data);
-      console.error('Error status:', err.response?.status);
-      console.error('Error headers:', err.response?.headers);
       setError(err.response?.data?.message || 'Failed to save custom tile');
     }
   };
 
   const handleNext = async () => {
     if (!validateStep(activeStep)) return;
-  
-    // If in Step 0, save the tile data before proceeding (for Pro users)
-    if (activeStep === 0 && user.subscription === 'pro') {
-      try {
-        const payload = {
-          name: inputs.tileName,
-          type: inputs.materialType,
-          length: inputs.slateTileHeight,
-          width: inputs.tileCoverWidth,
-          mingauge: inputs.minGauge,
-          maxgauge: inputs.maxGauge,
-          minspacing: inputs.minSpacing,
-          maxspacing: inputs.maxSpacing,
-          lhTileWidth: inputs.lhTileWidth,
-          crossbonded: inputs.crossBonded || 'NO',
-        };
-        console.log('Saving custom tile on Next with payload:', payload);
-        const response = await api.post('/api/users/tiles', payload);
-        console.log('Server response on Next:', response.data);
-        const newTile = { ...response.data, isPersonal: true };
-        setTiles((prevTiles) => {
-          const updatedTiles = [...prevTiles, newTile];
-          updatedTiles.sort((a: Tile, b: Tile) => {
-            const typeA = a.type.toLowerCase();
-            const typeB = b.type.toLowerCase();
-            if (typeA < typeB) return -1;
-            if (typeA > typeB) return 1;
-            const nameA = a.name.toLowerCase();
-            const nameB = b.name.toLowerCase();
-            return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
-          });
-          return updatedTiles;
-        });
-        setSelectedTile(newTile);
-        setInputs((prevInputs) => ({
-          ...prevInputs,
-          tileSelection: newTile.id.toString(),
-        }));
-      } catch (err: any) {
-        console.error('Error saving custom tile on Next:', err);
-        console.error('Error response on Next:', err.response?.data);
-        console.error('Error status on Next:', err.response?.status);
-        console.error('Error headers on Next:', err.response?.headers);
-        setError(err.response?.data?.message || 'Failed to save custom tile');
-        return;
-      }
+
+    if (activeStep === 0 && user.subscription === 'pro' && !inputs.tileSelection) {
+      await handleSaveCustomTile();
+      if (error) return; // Stop if save failed
     }
-  
+
     setActiveStep(prev => prev + 1);
   };
 
@@ -510,15 +459,15 @@ const Calculator: React.FC = () => {
         gutterOverhang: inputs.gutterOverhang,
         materialType: inputs.materialType,
         slateTileHeight: inputs.slateTileHeight,
-        maxGauge: inputs.maxGauge,
-        minGauge: inputs.minGauge,
+        maxGauge: inputs.maxGauge ?? 325,
+        minGauge: inputs.minGauge ?? 75,
         useDryRidge: inputs.useDryRidge,
       };
       const horizontalInputs = {
         widths: inputs.widths,
         tileCoverWidth: inputs.tileCoverWidth,
-        minSpacing: inputs.minSpacing,
-        maxSpacing: inputs.maxSpacing,
+        minSpacing: inputs.minSpacing ?? 3,
+        maxSpacing: inputs.maxSpacing ?? 7,
         useDryVerge: (inputs.leftVergeType === 'Dry' || inputs.rightVergeType === 'Dry' ? 'YES' : 'NO') as 'YES' | 'NO',
         abutmentSide: (inputs.leftVergeType === 'Abutment' && inputs.rightVergeType === 'Abutment' ? 'BOTH' :
                        inputs.leftVergeType === 'Abutment' ? 'LEFT' :
@@ -552,7 +501,6 @@ const Calculator: React.FC = () => {
         halfTiles,
       });
       setActiveStep(3);
-      // Open Tile Data and Settings accordions by default after calculation
       setTileDataExpandedResults(true);
       setSettingsExpandedResults(true);
     } catch (err: any) {
@@ -679,7 +627,6 @@ const Calculator: React.FC = () => {
             ))}
           </Alert>
         )}
-        {/* Step 1: Choose Tile / Tile Data */}
         {activeStep === 0 && (
           <Box sx={{ mb: 4 }}>
             {user.subscription === 'pro' && (
@@ -774,56 +721,52 @@ const Calculator: React.FC = () => {
                     </Tooltip>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Tooltip title="Enter the minimum batten spacing in millimeters">
+                    <Tooltip title="Enter the minimum batten spacing in millimeters (optional)">
                       <TextField
                         label="Min Gauge (mm)"
                         type="number"
-                        value={inputs.minGauge}
-                        onChange={(e) => setInputs({ ...inputs, minGauge: Number(e.target.value) })}
+                        value={inputs.minGauge ?? ''}
+                        onChange={(e) => setInputs({ ...inputs, minGauge: e.target.value ? Number(e.target.value) : null })}
                         fullWidth
-                        required
                         inputProps={{ min: 0 }}
                         variant="outlined"
                       />
                     </Tooltip>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Tooltip title="Enter the maximum batten spacing in millimeters">
+                    <Tooltip title="Enter the maximum batten spacing in millimeters (optional)">
                       <TextField
                         label="Max Gauge (mm)"
                         type="number"
-                        value={inputs.maxGauge}
-                        onChange={(e) => setInputs({ ...inputs, maxGauge: Number(e.target.value) })}
+                        value={inputs.maxGauge ?? ''}
+                        onChange={(e) => setInputs({ ...inputs, maxGauge: e.target.value ? Number(e.target.value) : null })}
                         fullWidth
-                        required
                         inputProps={{ min: 0 }}
                         variant="outlined"
                       />
                     </Tooltip>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Tooltip title="Enter the minimum horizontal spacing between tiles in millimeters">
+                    <Tooltip title="Enter the minimum horizontal spacing between tiles in millimeters (optional)">
                       <TextField
                         label="Min Spacing (mm)"
                         type="number"
-                        value={inputs.minSpacing}
-                        onChange={(e) => setInputs({ ...inputs, minSpacing: Number(e.target.value) })}
+                        value={inputs.minSpacing ?? ''}
+                        onChange={(e) => setInputs({ ...inputs, minSpacing: e.target.value ? Number(e.target.value) : null })}
                         fullWidth
-                        required
                         inputProps={{ min: 0 }}
                         variant="outlined"
                       />
                     </Tooltip>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Tooltip title="Enter the maximum horizontal spacing between tiles in millimeters">
+                    <Tooltip title="Enter the maximum horizontal spacing between tiles in millimeters (optional)">
                       <TextField
                         label="Max Spacing (mm)"
                         type="number"
-                        value={inputs.maxSpacing}
-                        onChange={(e) => setInputs({ ...inputs, maxSpacing: Number(e.target.value) })}
+                        value={inputs.maxSpacing ?? ''}
+                        onChange={(e) => setInputs({ ...inputs, maxSpacing: e.target.value ? Number(e.target.value) : null })}
                         fullWidth
-                        required
                         inputProps={{ min: 0 }}
                         variant="outlined"
                       />
@@ -874,7 +817,6 @@ const Calculator: React.FC = () => {
             </Accordion>
           </Box>
         )}
-        {/* Step 2: Roof Dimensions */}
         {activeStep === 1 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary' }}>
@@ -1000,7 +942,6 @@ const Calculator: React.FC = () => {
             </Accordion>
           </Box>
         )}
-        {/* Step 3: Settings */}
         {activeStep === 2 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary' }}>
@@ -1087,7 +1028,6 @@ const Calculator: React.FC = () => {
             </Grid>
           </Box>
         )}
-        {/* Step 4: Results */}
         {activeStep === 3 && (
           <Box>
             {!results ? (
@@ -1106,7 +1046,6 @@ const Calculator: React.FC = () => {
                 <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                   Calculation Results
                 </Typography>
-                {/* Tile Data and Settings */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   <Grid item xs={12} sm={6}>
                     <Accordion expanded={tileDataExpandedResults} onChange={(event, expanded) => setTileDataExpandedResults(expanded)}>
@@ -1140,25 +1079,25 @@ const Calculator: React.FC = () => {
                               <TableRow>
                                 <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Gauge</TableCell>
                                 <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                  {inputs.minGauge} mm
+                                  {inputs.minGauge ?? 75} mm
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Gauge</TableCell>
                                 <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                  {inputs.maxGauge} mm
+                                  {inputs.maxGauge ?? 325} mm
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Spacing</TableCell>
                                 <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                  {inputs.minSpacing} mm
+                                  {inputs.minSpacing ?? 3} mm
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Spacing</TableCell>
                                 <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                  {inputs.maxSpacing} mm
+                                  {inputs.maxSpacing ?? 7} mm
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -1221,7 +1160,6 @@ const Calculator: React.FC = () => {
                     </Accordion>
                   </Grid>
                 </Grid>
-                {/* Vertical Results */}
                 {results.vertical && results.vertical.solution.rafterResults && (
                   <Accordion sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -1325,7 +1263,7 @@ const Calculator: React.FC = () => {
                                         <TableRow>
                                           <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Full Courses Batten Gauge</TableCell>
                                           <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {r.fullCourses} @ {inputs.maxGauge} mm
+                                            {r.fullCourses} @ {inputs.maxGauge ?? 325} mm
                                           </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -1337,7 +1275,7 @@ const Calculator: React.FC = () => {
                                         <TableRow>
                                           <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
                                           <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {results.vertical.firstBatten + (r.cutCourseGauge || 0) + (r.fullCourses || 0) * inputs.maxGauge + r.effectiveRidgeOffset} mm
+                                            {results.vertical.firstBatten + (r.cutCourseGauge || 0) + (r.fullCourses || 0) * (inputs.maxGauge ?? 325) + r.effectiveRidgeOffset} mm
                                           </TableCell>
                                         </TableRow>
                                       </>
@@ -1352,7 +1290,6 @@ const Calculator: React.FC = () => {
                     </AccordionDetails>
                   </Accordion>
                 )}
-                {/* Horizontal Results */}
                 {results.horizontal && results.horizontal.solution.widthResults && (
                   <Accordion sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -1436,7 +1373,6 @@ const Calculator: React.FC = () => {
                     </AccordionDetails>
                   </Accordion>
                 )}
-                {/* Total Results */}
                 {results.totalCourses && (
                   <Accordion sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -1472,7 +1408,6 @@ const Calculator: React.FC = () => {
                     </AccordionDetails>
                   </Accordion>
                 )}
-                {/* Save Results */}
                 <Box sx={{ mt: 4, textAlign: 'center' }}>
                   <TextField
                     label="Project Name"
@@ -1512,7 +1447,6 @@ const Calculator: React.FC = () => {
             )}
           </Box>
         )}
-        {/* Navigation Buttons */}
         {activeStep < 3 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button

@@ -1,108 +1,76 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
+const { authenticateToken, checkProUser } = require('../middleware/auth');
 const { tile, userTile } = require('../db');
 
-// Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication token required' });
-  }
-
+// GET / - Fetch default tiles (Pro users only)
+router.get('/', authenticateToken, checkProUser, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user data to request
-    next();
+    console.log('Fetching default tiles for Pro user:', req.user.id);
+    const defaultTiles = await tile.findAll();
+    const tilesList = defaultTiles.map(t => ({ ...t.toJSON(), isPersonal: false }));
+    console.log('Returning default tiles:', tilesList.length);
+    res.json(tilesList);
   } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
-  }
-};
-
-// Middleware to check if user is Pro
-const checkProUser = (req, res, next) => {
-  if (req.user.subscription !== 'pro') {
-    return res.status(403).json({ message: 'Pro subscription required' });
-  }
-  next();
-};
-
-// Get all default tiles
-router.get('/', async (req, res) => {
-  try {
-    const tiles = await tile.findAll();
-    res.json(tiles);
-  } catch (error) {
-    console.error('Error fetching tiles:', error);
-    res.status(500).json({ message: 'Error fetching tiles', error: error.message });
+    console.error('Error fetching default tiles:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ message: 'Error fetching default tiles', error: error.message });
   }
 });
 
-// Get all personal tiles for the authenticated user
-router.get('/users/tiles', authenticateToken, checkProUser, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const tiles = await userTile.findAll({ where: { userId } });
-    res.json(tiles);
-  } catch (error) {
-    console.error('Error fetching personal tiles:', error);
-    res.status(500).json({ message: 'Error fetching personal tiles', error: error.message });
-  }
-});
-
-// Create a new personal tile
+// POST /users/tiles - Create a personal tile (Pro users only)
 router.post('/users/tiles', authenticateToken, checkProUser, async (req, res) => {
-  const { name, type, length, width, mingauge, maxgauge, minspacing, maxspacing, lhTileWidth, crossbonded } = req.body;
+  const {
+    name,
+    type,
+    length,
+    width,
+    mingauge,
+    maxgauge,
+    minspacing,
+    maxspacing,
+    lhTileWidth,
+    crossbonded,
+  } = req.body;
   const userId = req.user.id;
 
   try {
-    console.log('Received request to create personal tile:', req.body);
-    // Validate crossbonded
-    const validCrossbonded = crossbonded === 'YES' || crossbonded === 'NO' ? crossbonded : 'NO';
-    console.log('Validated crossbonded:', validCrossbonded);
+    console.log('Received request to create personal tile for user:', userId);
+    console.log('Request payload:', req.body);
+
+    // Basic validation for required fields
+    if (!name || !type || !length || !width || lhTileWidth === undefined || !crossbonded) {
+      console.log('Validation failed: Missing required fields');
+      return res.status(400).json({ message: 'Missing required fields', missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded } });
+    }
+
+    // Validate crossbonded value
+    if (!['YES', 'NO'].includes(crossbonded)) {
+      console.log('Validation failed: Invalid crossbonded value:', crossbonded);
+      return res.status(400).json({ message: 'crossbonded must be "YES" or "NO"' });
+    }
+
+    // Validate numeric fields (basic checks from original code)
+    if (mingauge !== null && (mingauge < 0 || !Number.isInteger(mingauge))) {
+      console.log('Validation failed: Invalid mingauge:', mingauge);
+      return res.status(400).json({ message: 'mingauge must be a non-negative integer or null' });
+    }
+    if (maxgauge !== null && (maxgauge < 0 || !Number.isInteger(maxgauge))) {
+      console.log('Validation failed: Invalid maxgauge:', maxgauge);
+      return res.status(400).json({ message: 'maxgauge must be a non-negative integer or null' });
+    }
+    if (minspacing !== null && (minspacing < 0 || !Number.isInteger(minspacing))) {
+      console.log('Validation failed: Invalid minspacing:', minspacing);
+      return res.status(400).json({ message: 'minspacing must be a non-negative integer or null' });
+    }
+    if (maxspacing !== null && (maxspacing < 0 || !Number.isInteger(maxspacing))) {
+      console.log('Validation failed: Invalid maxspacing:', maxspacing);
+      return res.status(400).json({ message: 'maxspacing must be a non-negative integer or null' });
+    }
+
+    // Create the new tile
     const newTile = await userTile.create({
       userId,
-      name,
-      type,
-      length,
-      width,
-      mingauge,
-      maxgauge,
-      minspacing,
-      maxspacing,
-      lhTileWidth,
-      crossbonded: validCrossbonded,
-    });
-    console.log('Created new tile:', newTile.toJSON());
-    res.status(201).json(newTile);
-  } catch (error) {
-    console.error('Error creating personal tile:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({ message: 'Error creating personal tile', error: error.message });
-  }
-});
-
-// Update a personal tile
-router.put('/users/tiles/:id', authenticateToken, checkProUser, async (req, res) => {
-  const tileId = req.params.id;
-  const userId = req.user.id;
-  const { name, type, length, width, mingauge, maxgauge, minspacing, maxspacing, lhTileWidth, crossbonded } = req.body;
-
-  try {
-    const tileToUpdate = await userTile.findOne({ where: { id: tileId, userId } });
-    if (!tileToUpdate) {
-      return res.status(404).json({ message: 'Tile not found or you do not have permission to edit it' });
-    }
-
-    // Validate maxspacing
-    if (maxspacing <= 0) {
-      return res.status(400).json({ message: 'Max Spacing must be greater than 0' });
-    }
-
-    await tileToUpdate.update({
       name,
       type,
       length,
@@ -115,29 +83,13 @@ router.put('/users/tiles/:id', authenticateToken, checkProUser, async (req, res)
       crossbonded,
     });
 
-    res.json(tileToUpdate);
+    console.log('Created new tile successfully:', newTile.toJSON());
+    res.status(201).json(newTile);
   } catch (error) {
-    console.error('Error updating personal tile:', error);
-    res.status(500).json({ message: 'Error updating personal tile', error: error.message });
-  }
-});
-
-// Delete a personal tile
-router.delete('/users/tiles/:id', authenticateToken, checkProUser, async (req, res) => {
-  const tileId = req.params.id;
-  const userId = req.user.id;
-
-  try {
-    const tileToDelete = await userTile.findOne({ where: { id: tileId, userId } });
-    if (!tileToDelete) {
-      return res.status(404).json({ message: 'Tile not found or you do not have permission to delete it' });
-    }
-
-    await tileToDelete.destroy();
-    res.status(204).send();
-  } catch (error) {
-    console.error('Error deleting personal tile:', error);
-    res.status(500).json({ message: 'Error deleting personal tile', error: error.message });
+    console.error('Error creating personal tile:', error.message);
+    console.error('Stack trace:', error.stack);
+    console.error('Request payload causing error:', req.body);
+    res.status(500).json({ message: 'Error creating personal tile', error: error.message });
   }
 });
 

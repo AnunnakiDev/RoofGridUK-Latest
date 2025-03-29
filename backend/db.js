@@ -2,8 +2,6 @@ require('dotenv').config();
 const { Sequelize, DataTypes } = require('sequelize');
 const { Client } = require('pg');
 
-// Rest of the file remains the same
-
 // Function to create the database if it doesn't exist
 const createDatabaseIfNotExists = async () => {
   const client = new Client({
@@ -36,12 +34,17 @@ const createDatabaseIfNotExists = async () => {
 };
 
 // Initialize Sequelize with PostgreSQL
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
+const sequelize = new Sequelize(process.env.DATABASE_URL || {
+  dialect: 'postgres',
+  database: 'roofgrid_uk',
+  username: 'postgres',
+  password: 'password1234',
+  host: 'localhost',
+  port: 5432,
+}, {
   dialect: 'postgres',
   define: {
-    // Ensure table names are lowercase to match the original schema
-    freezeTableName: true,
-    tableName: (modelName) => modelName.toLowerCase(),
+    freezeTableName: true, // Use model name as table name
   },
 });
 
@@ -76,23 +79,20 @@ const initDb = async () => {
     await sequelize.authenticate();
     console.log('Database connection established successfully.');
 
-    // Note: Migrations should be run separately using sequelize-cli
-    // For development, we'll sync the database without dropping tables
+    // Note: Migrations handle schema changes; sync with alter for minor adjustments
     console.log('Starting database sync...');
-    await sequelize.sync({ alter: true }); // Use alter to modify tables without dropping
+    await sequelize.sync({ alter: true }); // Alter tables if needed, no drop
     console.log('Database synced successfully.');
 
-    // Verify the user table
+    // Verify tables (optional for debugging)
     console.log('Verifying user table...');
     const users = await user.findAll();
     console.log('Users in database:', users.map(u => u.toJSON()));
 
-    // Verify the tile table
     console.log('Verifying tile table...');
     const tiles = await tile.findAll();
     console.log('Tiles in database:', tiles.map(t => t.toJSON()));
 
-    // Verify the project table
     console.log('Verifying project table...');
     const projects = await project.findAll();
     console.log('Projects in database:', projects.map(p => p.toJSON()));

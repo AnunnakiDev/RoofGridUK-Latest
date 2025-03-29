@@ -28,30 +28,33 @@ const userTile = (sequelize, DataTypes) => {
     crossbonded: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        isIn: [['YES', 'NO']],
+      },
     },
     mingauge: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 75, // Default value to match client-side default
+      defaultValue: 75,
     },
     maxgauge: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 325, // Default value to match client-side default
+      defaultValue: 325,
     },
     minspacing: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 3, // Default value to match client-side default
+      defaultValue: 3,
     },
     maxspacing: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 7, // Default value to match client-side default
+      defaultValue: 7,
     },
     lhTileWidth: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: false, // Model says false, but DB is nullable with default 0; align as needed
     },
   });
 
