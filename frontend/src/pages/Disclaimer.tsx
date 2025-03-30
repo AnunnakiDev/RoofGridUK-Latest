@@ -21,7 +21,7 @@ const Disclaimer: React.FC = () => (
       <Box
         sx={{
           width: '100%',
-          height: { xs: '300px', md: '400px' },
+          height: { xs: '200px', md: '400px' },
           backgroundImage: 'url(/images/uk-pitched-roof.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',

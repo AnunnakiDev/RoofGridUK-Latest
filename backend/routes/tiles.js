@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { tile } = require('../db');
+const { tile: Tile } = require('../db'); // Corrected import
 
 // Middleware to ensure only admins can access these routes
 const checkAdmin = (req, res, next) => {
@@ -14,7 +14,7 @@ const checkAdmin = (req, res, next) => {
 // GET /tiles - Fetch all tiles
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const tiles = await tile.findAll();
+    const tiles = await Tile.findAll();
     res.json(tiles);
   } catch (error) {
     console.error('Error fetching tiles:', error.message);
@@ -51,7 +51,7 @@ router.post('/', authenticateToken, checkAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Crossbonded must be "YES" or "NO"' });
     }
 
-    const newTile = await tile.create({
+    const newTile = await Tile.create({
       name,
       type,
       length,
@@ -102,13 +102,13 @@ router.put('/:id', authenticateToken, checkAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Crossbonded must be "YES" or "NO"' });
     }
 
-    const existingTile = await tile.findOne({ where: { id } });
+    const existingTile = await Tile.findOne({ where: { id } });
     if (!existingTile) {
       console.log('Tile not found:', id);
       return res.status(404).json({ message: 'Tile not found' });
     }
 
-    const updatedTile = await tile.update(
+    const updatedTile = await Tile.update(
       { name, type, length, width, crossbonded, mingauge, maxgauge, minspacing, maxspacing, lhTileWidth },
       { where: { id }, returning: true }
     );
@@ -133,13 +133,13 @@ router.delete('/:id', authenticateToken, checkAdmin, async (req, res) => {
   try {
     console.log(`Received request to delete tile ${id} by admin ${req.user.id}`);
 
-    const existingTile = await tile.findOne({ where: { id } });
+    const existingTile = await Tile.findOne({ where: { id } });
     if (!existingTile) {
       console.log('Tile not found:', id);
       return res.status(404).json({ message: 'Tile not found' });
     }
 
-    const result = await tile.destroy({ where: { id } });
+    const result = await Tile.destroy({ where: { id } });
 
     if (result === 0) {
       console.log('Tile deletion failed, no rows affected:', id);
@@ -168,7 +168,7 @@ router.post('/bulk-delete', authenticateToken, checkAdmin, async (req, res) => {
     }
 
     // Check if all tiles exist
-    const existingTiles = await tile.findAll({
+    const existingTiles = await Tile.findAll({
       where: { id: tileIds },
     });
 
@@ -178,7 +178,7 @@ router.post('/bulk-delete', authenticateToken, checkAdmin, async (req, res) => {
     }
 
     // Delete the tiles
-    const result = await tile.destroy({
+    const result = await Tile.destroy({
       where: { id: tileIds },
     });
 
@@ -192,6 +192,73 @@ router.post('/bulk-delete', authenticateToken, checkAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error during bulk delete:', error.message);
     res.status(500).json({ message: 'Error during bulk delete', error: error.message });
+  }
+});
+
+// POST /tiles/bulk-import - Import multiple tiles from CSV
+router.post('/bulk-import', authenticateToken, checkAdmin, async (req, res) => {
+  const tiles = req.body;
+
+  try {
+    console.log(`Received request to bulk import tiles by admin ${req.user.id}:`, tiles);
+
+    // Validate request body
+    if (!Array.isArray(tiles) || tiles.length === 0) {
+      console.log('Validation failed: tiles must be a non-empty array');
+      return res.status(400).json({ message: 'Tiles must be a non-empty array' });
+    }
+
+    // Validate each tile
+    for (const tile of tiles) {
+      if (
+        !tile.name ||
+        !tile.type ||
+        tile.length === undefined ||
+        tile.width === undefined ||
+        !tile.crossbonded ||
+        tile.lhTileWidth === undefined
+      ) {
+        console.log('Validation failed: Missing required fields in tile:', tile);
+        return res.status(400).json({
+          message: 'Missing required fields in one or more tiles',
+          missing: {
+            name: !tile.name,
+            type: !tile.type,
+            length: tile.length === undefined,
+            width: tile.width === undefined,
+            crossbonded: !tile.crossbonded,
+            lhTileWidth: tile.lhTileWidth === undefined,
+          },
+        });
+      }
+
+      // Validate crossbonded value
+      if (!['YES', 'NO'].includes(tile.crossbonded)) {
+        console.log('Validation failed: Invalid crossbonded value:', tile.crossbonded);
+        return res.status(400).json({ message: 'Crossbonded must be "YES" or "NO"' });
+      }
+
+      // Validate numerical fields (allow lhTileWidth to be 0)
+      if (
+        tile.length <= 0 ||
+        tile.width <= 0 ||
+        (tile.mingauge && tile.mingauge <= 0) ||
+        (tile.maxgauge && tile.maxgauge <= 0) ||
+        (tile.minspacing && tile.minspacing <= 0) ||
+        (tile.maxspacing && tile.maxspacing <= 0)
+      ) {
+        console.log('Validation failed: Numerical fields must be positive:', tile);
+        return res.status(400).json({ message: 'Numerical fields must be positive' });
+      }
+    }
+
+    // Create tiles in the database
+    const createdTiles = await Tile.bulkCreate(tiles, { returning: true });
+    console.log(`Successfully imported ${createdTiles.length} tiles`);
+    res.status(201).json(createdTiles);
+  } catch (error) {
+    console.error('Error during bulk import:', error.message);
+    res.status(500).json({ message: 'Error during bulk import', error: error.message });
   }
 });
 

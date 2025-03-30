@@ -8,18 +8,24 @@ const Footer: React.FC = () => {
   return (
     <Box
       sx={{
-        bgcolor: '#f5f5f5',
-        pt: 4, // Top padding (32px)
-        pb: 6, // Bottom padding increased (48px) to lift content
+        bgcolor: '#e0e0e0', // Light grey
+        pt: 2, // Reduced padding-top (16px)
+        pb: 3, // Reduced padding-bottom (24px)
         textAlign: 'center',
         position: 'fixed',
         bottom: 0,
         width: '100%',
         zIndex: 1100,
-        paddingBottom: 'env(safe-area-inset-bottom)', // Handle iPhone/Safari bottom inset
+        borderTop: '4px solid #1b75bc', // Blue line to match navbar
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 1 }}>
+      <img
+        src="/RoofGrid320x63.png"
+        alt="RoofGrid UK"
+        style={{ maxHeight: '30px', width: 'auto', marginBottom: '8px' }} // Reduced spacing
+      />
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
         <Link
           component="button"
           onClick={() => navigate('/disclaimer')}
@@ -49,11 +55,7 @@ const Footer: React.FC = () => {
           Contact
         </Link>
       </Box>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ mt: 2 }} // Added margin-top (16px) to lift up slightly
-      >
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
         © {new Date().getFullYear()} RoofGrid UK. All rights reserved.
       </Typography>
     </Box>

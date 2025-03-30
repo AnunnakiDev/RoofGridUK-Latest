@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, IconButton, SxProps, Theme } from '@mui/material';
 import { fetchWeatherData } from '../utils/weatherApi';
 import WeatherForecastModal from './WeatherForecastModal';
 import { WeatherWidgetData, WeatherForecast } from '../types/weather';
 
-const WeatherWidget: React.FC = () => {
+interface WeatherWidgetProps {
+  sx?: SxProps<Theme>;
+}
+
+const WeatherWidget: React.FC<WeatherWidgetProps> = ({ sx }) => {
   const [weather, setWeather] = useState<WeatherWidgetData | null>(null);
   const [forecast, setForecast] = useState<WeatherForecast | null>(null);
   const [showForecast, setShowForecast] = useState(false);
@@ -88,7 +92,7 @@ const WeatherWidget: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, ...sx }}>
         <Typography variant="body2" color="inherit">
           Loading weather...
         </Typography>
@@ -97,7 +101,7 @@ const WeatherWidget: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, zIndex: 1200 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, zIndex: 1200, ...sx }}>
       <IconButton onClick={() => setShowForecast(!showForecast)} color="inherit" size="small">
         <img
           src={`/weather-icons/${weather?.icon}.png`}

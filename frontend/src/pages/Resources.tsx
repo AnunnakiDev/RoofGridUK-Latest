@@ -23,7 +23,7 @@ const Resources: React.FC = () => {
         <Box
           sx={{
             width: '100%',
-            height: { xs: '300px', md: '400px' },
+            height: { xs: '200px', md: '300px' },
             backgroundImage: 'url(/images/uk-pitched-roof.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
@@ -250,7 +250,7 @@ const Resources: React.FC = () => {
                 <a href="https://www.nfrc.co.uk" target="_blank" rel="noopener noreferrer" style={{ color: '#1b75bc', textDecoration: 'underline' }}>
                   NFRC
                 </a>{' '}
-                - UK roofing standards and resources.
+                - National Federation of Roofing Contractors.
               </Typography>
               <Typography variant="body1" color="text.secondary" paragraph>
                 <a href="https://www.bsigroup.com/en-GB/standards/bs-5534/" target="_blank" rel="noopener noreferrer" style={{ color: '#1b75bc', textDecoration: 'underline' }}>
