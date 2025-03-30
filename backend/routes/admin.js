@@ -53,9 +53,9 @@ router.get('/users', authenticateToken, checkAdmin, async (req, res) => {
     console.log('Fetching users for admin:', req.user.id);
 
     // Get pagination and search parameters from query
-    const page = parseInt(req.query.page) || 1; // Removed 'as string'
-    const limit = parseInt(req.query.limit) || 10; // Removed 'as string'
-    const search = req.query.search || ''; // Removed 'as string'
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
     const offset = (page - 1) * limit;
 
     // Build the where clause for search
@@ -239,6 +239,54 @@ router.delete('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
     console.error('Error deleting user:', error.message);
     console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error deleting user', error: error.message });
+  }
+});
+
+// POST /users/bulk-delete - Delete multiple users
+router.post('/users/bulk-delete', authenticateToken, checkAdmin, async (req, res) => {
+  const { userIds } = req.body;
+
+  try {
+    console.log(`Received request to bulk delete users by admin ${req.user.id}:`, userIds);
+
+    // Validate request body
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      console.log('Validation failed: userIds must be a non-empty array');
+      return res.status(400).json({ message: 'userIds must be a non-empty array' });
+    }
+
+    // Check if any of the users to delete is the admin themselves
+    if (userIds.includes(req.user.id)) {
+      console.log('Admin attempted to delete their own account:', req.user.id);
+      return res.status(403).json({ message: 'Cannot delete your own account' });
+    }
+
+    // Check if all users exist
+    const existingUsers = await user.findAll({
+      where: { id: userIds },
+    });
+
+    if (existingUsers.length !== userIds.length) {
+      console.log('Some users not found:', userIds);
+      return res.status(404).json({ message: 'One or more users not found' });
+    }
+
+    // Delete the users
+    const result = await user.destroy({
+      where: { id: userIds },
+    });
+
+    if (result === 0) {
+      console.log('Bulk deletion failed, no rows affected');
+      return res.status(500).json({ message: 'Failed to delete users' });
+    }
+
+    console.log(`Successfully deleted ${result} users`);
+    res.json({ message: `Successfully deleted ${result} users` });
+  } catch (error) {
+    console.error('Error during bulk delete:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ message: 'Error during bulk delete', error: error.message });
   }
 });
 

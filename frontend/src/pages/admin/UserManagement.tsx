@@ -22,6 +22,7 @@ import {
   TextField,
   Button,
   Pagination,
+  Checkbox,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditIcon from '@mui/icons-material/Edit';
@@ -43,7 +44,9 @@ const UserManagement: React.FC = () => {
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [openBulkDeleteDialog, setOpenBulkDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]); // For bulk actions
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -53,8 +56,8 @@ const UserManagement: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [search, setSearch] = useState(''); // Add search state
-  const limit = 10; // Number of users per page
+  const [search, setSearch] = useState('');
+  const limit = 10;
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -69,7 +72,7 @@ const UserManagement: React.FC = () => {
     };
 
     fetchUsers();
-  }, [page, search]); // Add search to dependencies
+  }, [page, search]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
@@ -77,7 +80,42 @@ const UserManagement: React.FC = () => {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
-    setPage(1); // Reset to first page on search
+    setPage(1);
+    setSelectedUsers([]); // Clear selection on search
+  };
+
+  const handleSelectUser = (userId: number) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      setSelectedUsers(users.map((user) => user.id));
+    } else {
+      setSelectedUsers([]);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    setOpenBulkDeleteDialog(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      await api.post('/api/admin/users/bulk-delete', { userIds: selectedUsers });
+      setSuccess(`Successfully deleted ${selectedUsers.length} users`);
+      setSelectedUsers([]);
+      // Refresh the user list
+      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      setUsers(fetchResponse.data.users);
+      setTotalPages(fetchResponse.data.totalPages);
+      setTotalUsers(fetchResponse.data.totalUsers);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete users');
+    }
+    setOpenBulkDeleteDialog(false);
   };
 
   const handleAddUser = () => {
@@ -118,6 +156,10 @@ const UserManagement: React.FC = () => {
   const handleDeleteDialogClose = () => {
     setOpenDeleteDialog(false);
     setSelectedUser(null);
+  };
+
+  const handleBulkDeleteDialogClose = () => {
+    setOpenBulkDeleteDialog(false);
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -220,6 +262,20 @@ const UserManagement: React.FC = () => {
               <Typography variant="body1">
                 Total Users: {totalUsers}
               </Typography>
+              {selectedUsers.length > 0 && (
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={handleBulkDelete}
+                  sx={{
+                    py: 1,
+                    fontSize: { xs: '0.9rem', sm: '1rem' },
+                    width: { xs: 'auto', sm: 'auto' },
+                  }}
+                >
+                  Delete Selected ({selectedUsers.length})
+                </Button>
+              )}
               <Button
                 variant="contained"
                 color="primary"
@@ -241,16 +297,34 @@ const UserManagement: React.FC = () => {
           ) : (
             <>
               <Box sx={{ overflowX: 'auto' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Checkbox
+                    checked={selectedUsers.length === users.length && users.length > 0}
+                    onChange={handleSelectAll}
+                    color="primary"
+                  />
+                  <Typography variant="body2" sx={{ color: '#1b75bc' }}>
+                    Select All
+                  </Typography>
+                </Box>
                 {users.map((user) => (
                   <Accordion key={user.id} sx={{ mb: 1 }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                        <Typography
-                          variant="h6"
-                          sx={{ fontWeight: 'medium', color: 'primary.main', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}
-                        >
-                          {user.email}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Checkbox
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={() => handleSelectUser(user.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            color="primary"
+                          />
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 'medium', color: 'primary.main', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}
+                          >
+                            {user.email}
+                          </Typography>
+                        </Box>
                         <Box>
                           <IconButton onClick={(e) => { e.stopPropagation(); handleEditUser(user); }} color="primary">
                             <EditIcon />
@@ -426,6 +500,24 @@ const UserManagement: React.FC = () => {
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={openBulkDeleteDialog} onClose={handleBulkDeleteDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Confirm Bulk Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete {selectedUsers.length} users?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleBulkDeleteDialogClose} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleBulkDeleteConfirm} color="error">
             Delete
           </Button>
         </DialogActions>
