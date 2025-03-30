@@ -1,4 +1,6 @@
-const userTile = (sequelize, DataTypes) => {
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize, DataTypes) => {
   const UserTile = sequelize.define('userTile', {
     id: {
       type: DataTypes.INTEGER,
@@ -54,8 +56,11 @@ const userTile = (sequelize, DataTypes) => {
     },
     lhTileWidth: {
       type: DataTypes.INTEGER,
-      allowNull: false, // Model says false, but DB is nullable with default 0; align as needed
+      allowNull: false,
     },
+  }, {
+    tableName: 'userTile',
+    timestamps: true,
   });
 
   UserTile.associate = (models) => {
@@ -64,5 +69,3 @@ const userTile = (sequelize, DataTypes) => {
 
   return UserTile;
 };
-
-module.exports = userTile;

@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     crossbonded: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM('YES', 'NO'),
       allowNull: false,
     },
     mingauge: {
@@ -54,7 +54,8 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 0,
     },
   }, {
-    tableName: 'tile', // Explicitly set the table name
+    tableName: 'tile',
+    timestamps: true,
   });
 
   return Tile;

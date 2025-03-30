@@ -1,3 +1,5 @@
+const { DataTypes } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('user', {
     username: {
@@ -13,11 +15,17 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user',
+      validate: {
+        isIn: [['admin', 'user']], // Enforce valid values
+      },
     },
     subscription: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'free',
+      defaultValue: 'basic',
+      validate: {
+        isIn: [['basic', 'pro']], // Enforce valid values
+      },
     },
     email: {
       type: DataTypes.STRING,
@@ -28,7 +36,8 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
   }, {
-    tableName: 'user', // Explicitly set the table name
+    tableName: 'user',
+    timestamps: true,
   });
 
   return User;

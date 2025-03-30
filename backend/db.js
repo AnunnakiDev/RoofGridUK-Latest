@@ -2,13 +2,21 @@ require('dotenv').config();
 const { Sequelize, DataTypes } = require('sequelize');
 const { Client } = require('pg');
 
+// Log environment variables to debug
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_PORT:', process.env.DB_PORT);
+console.log('DB_NAME:', process.env.DB_NAME);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_PASS:', process.env.DB_PASS);
+
 // Function to create the database if it doesn't exist
 const createDatabaseIfNotExists = async () => {
   const client = new Client({
-    user: 'postgres',
-    host: 'localhost',
-    password: 'password1234',
-    port: 5432,
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    password: process.env.DB_PASS || 'password1234', // Use environment variable
+    port: process.env.DB_PORT || 5432,
     database: 'postgres', // Connect to the default 'postgres' database
   });
 
@@ -36,11 +44,11 @@ const createDatabaseIfNotExists = async () => {
 // Initialize Sequelize with PostgreSQL
 const sequelize = new Sequelize(process.env.DATABASE_URL || {
   dialect: 'postgres',
-  database: 'roofgrid_uk',
-  username: 'postgres',
-  password: 'password1234',
-  host: 'localhost',
-  port: 5432,
+  database: process.env.DB_NAME || 'roofgrid_uk',
+  username: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASS || 'password1234',
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
 }, {
   dialect: 'postgres',
   define: {
@@ -58,9 +66,11 @@ const user = require('./models/user')(sequelize, DataTypes);
 console.log('User model imported successfully, table name:', user.tableName);
 const userTile = require('./models/userTile')(sequelize, DataTypes);
 console.log('UserTile model imported successfully, table name:', userTile.tableName);
+const passwordResetToken = require('./models/passwordResetToken')(sequelize);
+console.log('PasswordResetToken model imported successfully, table name:', passwordResetToken.tableName);
 
 // Define associations
-const models = { tile, project, user, userTile };
+const models = { tile, project, user, userTile, passwordResetToken };
 Object.keys(models).forEach(modelName => {
   if (models[modelName].associate) {
     console.log(`Setting up associations for model: ${modelName}`);
@@ -102,4 +112,4 @@ const initDb = async () => {
   }
 };
 
-module.exports = { sequelize, initDb, tile, project, user, userTile };
+module.exports = { sequelize, initDb, tile, project, user, userTile, passwordResetToken };

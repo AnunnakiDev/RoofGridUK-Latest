@@ -49,6 +49,7 @@ const UserManagement: React.FC = () => {
     role: 'user' as 'admin' | 'user',
     subscription: 'basic' as 'basic' | 'pro',
   });
+  const [formErrors, setFormErrors] = useState<{ email?: string; password?: string }>({});
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -63,6 +64,22 @@ const UserManagement: React.FC = () => {
     fetchUsers();
   }, []);
 
+  const validateEmail = (email: string): string | undefined => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) return 'Email is required';
+    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    return undefined;
+  };
+
+  const validatePassword = (password: string): string | undefined => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!password) return 'Password is required';
+    if (!passwordRegex.test(password)) {
+      return 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character';
+    }
+    return undefined;
+  };
+
   const handleAddUser = () => {
     setNewUser({
       email: '',
@@ -70,11 +87,13 @@ const UserManagement: React.FC = () => {
       role: 'user',
       subscription: 'basic',
     });
+    setFormErrors({});
     setOpenAddDialog(true);
   };
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
+    setFormErrors({});
     setOpenEditDialog(true);
   };
 
@@ -91,11 +110,13 @@ const UserManagement: React.FC = () => {
       role: 'user',
       subscription: 'basic',
     });
+    setFormErrors({});
   };
 
   const handleEditDialogClose = () => {
     setOpenEditDialog(false);
     setSelectedUser(null);
+    setFormErrors({});
   };
 
   const handleDeleteDialogClose = () => {
@@ -105,6 +126,18 @@ const UserManagement: React.FC = () => {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate form
+    const emailError = validateEmail(newUser.email);
+    const passwordError = validatePassword(newUser.password);
+    if (emailError || passwordError) {
+      setFormErrors({
+        email: emailError,
+        password: passwordError,
+      });
+      return;
+    }
+
     try {
       const response = await api.post('/api/admin/users', newUser);
       setUsers([...users, response.data]);
@@ -118,6 +151,13 @@ const UserManagement: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Validate email (in case it was edited)
+    const emailError = validateEmail(selectedUser.email);
+    if (emailError) {
+      setFormErrors({ email: emailError });
+      return;
+    }
 
     try {
       const response = await api.put(`/api/admin/users/${selectedUser.id}`, {
@@ -147,11 +187,15 @@ const UserManagement: React.FC = () => {
 
   const handleNewUserChange = (field: keyof typeof newUser, value: string) => {
     setNewUser({ ...newUser, [field]: value });
+    // Clear error for the field being edited
+    setFormErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleUserChange = (field: keyof User, value: string) => {
     if (selectedUser) {
       setSelectedUser({ ...selectedUser, [field]: value });
+      // Clear error for the field being edited
+      setFormErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
@@ -263,6 +307,8 @@ const UserManagement: React.FC = () => {
               margin="normal"
               required
               type="email"
+              error={!!formErrors.email}
+              helperText={formErrors.email}
             />
             <TextField
               label="Password"
@@ -272,6 +318,8 @@ const UserManagement: React.FC = () => {
               margin="normal"
               required
               type="password"
+              error={!!formErrors.password}
+              helperText={formErrors.password}
             />
             <FormControl fullWidth margin="normal">
               <InputLabel>Role</InputLabel>
@@ -313,9 +361,18 @@ const UserManagement: React.FC = () => {
         <DialogContent>
           {selectedUser && (
             <Box component="form" onSubmit={handleEditSubmit} sx={{ mt: 2 }}>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                Email: {selectedUser.email}
-              </Typography>
+              <TextField
+                label="Email"
+                value={selectedUser.email}
+                onChange={(e) => handleUserChange('email', e.target.value)}
+                fullWidth
+                margin="normal"
+                required
+                type="email"
+                error={!!formErrors.email}
+                helperText={formErrors.email}
+                disabled // Prevent editing email to avoid complexity with uniqueness constraints
+              />
               <FormControl fullWidth margin="normal">
                 <InputLabel>Role</InputLabel>
                 <Select

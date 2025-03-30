@@ -1,266 +1,188 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const { user, passwordResetToken } = require('../db');
+require('dotenv').config();
 
-// Load bcryptjs and log any issues
-let bcrypt; // Renamed from 'user' to 'bcrypt'
-try {
-  bcrypt = require('bcryptjs');
-  console.log('bcryptjs loaded successfully');
-} catch (error) {
-  console.error('Error loading bcryptjs:', error);
-  throw error;
-}
+// Set up Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.MAILTRAP_HOST,
+  port: process.env.MAILTRAP_PORT,
+  auth: {
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS,
+  },
+});
 
-const { user } = require('../db'); // No conflict now
-const Sequelize = require('sequelize');
-const { authenticateToken } = require('../middleware/auth');
-
-// Register a new user
+// POST /register - Register a new user
 router.post('/register', async (req, res) => {
-  const { username, password, email, role, subscription } = req.body;
-
+  const { username, email, password } = req.body;
+  console.log(`Received registration request for username: ${username}, email: ${email}`);
   try {
-    console.log('Register attempt for username:', username);
-
-    // Validate required fields
-    if (!username || !password || !email) {
-      console.log('Missing required fields:', { username, email });
-      return res.status(400).json({ message: 'Username, email, and password are required' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.log('Invalid email format:', email);
-      return res.status(400).json({ message: 'Invalid email format' });
-    }
-
-    // Check if the user already exists by username or email
-    console.log('Checking if user exists:', username, email);
-    const existingUser = await user.findOne({ where: { username } });
+    const existingUser = await user.findOne({ where: { email } });
     if (existingUser) {
-      console.log('User already exists:', username);
-      return res.status(400).json({ message: 'Username already exists' });
-    }
-    const existingEmail = await user.findOne({ where: { email } });
-    if (existingEmail) {
-      console.log('Email already exists:', email);
       return res.status(400).json({ message: 'Email already exists' });
     }
-
-    // Hash the password
-    console.log('Hashing password for user:', username);
-    const hashedPassword = await bcrypt.hash(password, 10); // Use 'bcrypt' here
-    console.log('Password hashed successfully:', hashedPassword);
-
-    // Create the new user
-    console.log('Creating new user:', username);
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
     const newUser = await user.create({
       username,
-      password: hashedPassword,
       email,
-      role: role || 'user',
-      subscription: subscription || 'free',
+      password: hashedPassword,
+      role: 'user',
+      subscription: 'basic',
     });
-    console.log('New user created:', newUser.toJSON());
-
-    // Generate a JWT token
-    console.log('Generating JWT token for user:', username);
     const token = jwt.sign(
-      { id: newUser.id, username: newUser.username, email: newUser.email, role: newUser.role, subscription: newUser.subscription },
+      { id: newUser.id, role: newUser.role, subscription: newUser.subscription, email: newUser.email },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
-    console.log('JWT token generated:', token);
-
-    // Send the response
-    console.log('Sending response with token for user:', username);
-    res.json({ token });
-    console.log('Response sent successfully');
+    res.status(201).json({ token });
   } catch (error) {
-    console.error('Error during registration:', error);
-    res.status(500).json({ message: 'Error registering user', error: error.message });
+    console.error('Error during registration:', error.message);
+    res.status(500).json({ message: 'Error during registration', error: error.message });
   }
 });
 
-// Login a user
+// POST /login - Login a user
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-
+  console.log(`Received login request for username: ${username}`);
   try {
-    console.log('Login attempt for username:', username);
-
-    // Validate required fields
     if (!username || !password) {
-      console.log('Missing required fields:', { username });
-      return res.status(400).json({ message: 'Username and password are required' });
+      return res.status(400).json({ message: 'Missing required fields' });
     }
-
-    // Find the user by username
-    console.log('Querying user table for username:', username);
-    const foundUser = await user.findOne({ where: { username } });
-    console.log('Found user:', foundUser ? foundUser.toJSON() : null);
-    if (!foundUser) {
-      console.log('User not found:', username);
-      return res.status(400).json({ message: 'Invalid username or password' });
+    const existingUser = await user.findOne({ where: { username } });
+    if (!existingUser) {
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
-
-    // Compare the password
-    console.log('Comparing password for user:', username);
-    const isMatch = await bcrypt.compare(password, foundUser.password); // Use 'bcrypt' here
-    console.log('Password match:', isMatch);
+    const isMatch = await bcrypt.compare(password, existingUser.password);
     if (!isMatch) {
-      console.log('Password mismatch for user:', username);
-      return res.status(400).json({ message: 'Invalid username or password' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
-
-    // Generate a JWT token
-    console.log('Generating JWT token for user:', username);
     const token = jwt.sign(
-      { id: foundUser.id, username: foundUser.username, email: foundUser.email, role: foundUser.role, subscription: foundUser.subscription },
+      { id: existingUser.id, role: existingUser.role, subscription: existingUser.subscription, email: existingUser.email },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
-    console.log('JWT token generated:', token);
-
-    // Send the response
-    console.log('Sending response with token for user:', username);
     res.json({ token });
-    console.log('Response sent successfully');
   } catch (error) {
-    console.error('Error during login:', error);
+    console.error('Error during login:', error.message);
     res.status(500).json({ message: 'Error during login', error: error.message });
   }
 });
 
-// Get user profile
-router.get('/profile', authenticateToken, async (req, res) => {
+// POST /forgot-password - Request a password reset
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  console.log(`Received password reset request for email: ${email}`);
   try {
-    const userId = req.user.id;
-    const foundUser = await user.findOne({ where: { id: userId } });
-    if (!foundUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({
-      id: foundUser.id,
-      username: foundUser.username,
-      email: foundUser.email,
-      role: foundUser.role,
-      subscription: foundUser.subscription,
-    });
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    res.status(500).json({ message: 'Error fetching user profile', error: error.message });
-  }
-});
-
-// Update user profile
-router.put('/profile', authenticateToken, async (req, res) => {
-  const { username, email } = req.body;
-  const userId = req.user.id;
-
-  try {
-    // Validate required fields
-    if (!username || !email) {
-      return res.status(400).json({ message: 'Username and email are required' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Invalid email format' });
+    const existingUser = await user.findOne({ where: { email } });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'Email not found' });
     }
 
-    // Check if the username or email is already taken by another user
-    const existingUser = await user.findOne({ where: { username, id: { [Sequelize.Op.ne]: userId } } });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Username already exists' });
-    }
-    const existingEmail = await user.findOne({ where: { email, id: { [Sequelize.Op.ne]: userId } } });
-    if (existingEmail) {
-      return res.status(400).json({ message: 'Email already exists' });
-    }
-
-    // Update the user
-    const updatedUser = await user.update(
-      { username, email },
-      { where: { id: userId }, returning: true }
-    );
-
-    if (!updatedUser[1][0]) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Generate a new JWT token with updated details
+    // Generate a reset token
     const token = jwt.sign(
-      {
-        id: userId,
-        username: updatedUser[1][0].username,
-        email: updatedUser[1][0].email,
-        role: updatedUser[1][0].role,
-        subscription: updatedUser[1][0].subscription,
-      },
+      { userId: existingUser.id },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
-    res.json({ token });
+    // Save the reset token to the database
+    await passwordResetToken.create({
+      userId: existingUser.id,
+      token,
+      expiresAt: new Date(Date.now() + 3600000), // 1 hour from now
+    });
+
+    // Send the reset email
+    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
+    const mailOptions = {
+      from: process.env.FROM_EMAIL,
+      to: email,
+      subject: 'Password Reset Request - RoofGrid UK',
+      text: `You requested a password reset for your RoofGrid UK account. Click the link below to reset your password:\n\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request a password reset, please ignore this email.`,
+      html: `
+        <h1>Password Reset Request</h1>
+        <p>You requested a password reset for your RoofGrid UK account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you did not request a password reset, please ignore this email.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${email}`);
+    res.json({ message: 'Password reset email sent. Please check your inbox.' });
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    res.status(500).json({ message: 'Error updating user profile', error: error.message });
+    console.error('Error sending password reset email:', error.message);
+    res.status(500).json({ message: 'Error sending password reset email', error: error.message });
   }
 });
 
-// Change user password
-router.put('/change-password', authenticateToken, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  const userId = req.user.id;
-
+// POST /reset-password - Reset the password using a token
+router.post('/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  console.log('Received password reset request with token');
   try {
-    // Validate required fields
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
     }
 
-    // Find the user
-    const foundUser = await user.findOne({ where: { id: userId } });
-    if (!foundUser) {
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const resetToken = await passwordResetToken.findOne({ where: { token } });
+    if (!resetToken) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    // Check if the token has expired
+    if (new Date() > new Date(resetToken.expiresAt)) {
+      await resetToken.destroy();
+      return res.status(400).json({ message: 'Token has expired' });
+    }
+
+    // Check if the user exists
+    const existingUser = await user.findOne({ where: { id: resetToken.userId } });
+    if (!existingUser) {
       return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, foundUser.password); // Use 'bcrypt' here
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
     // Hash the new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10); // Use 'bcrypt' here
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update the password
+    // Update the user's password
     await user.update(
-      { password: hashedNewPassword },
-      { where: { id: userId } }
+      { password: hashedPassword },
+      { where: { id: resetToken.userId } }
     );
 
-    // Generate a new JWT token
-    const token = jwt.sign(
-      {
-        id: userId,
-        username: foundUser.username,
-        email: foundUser.email,
-        role: foundUser.role,
-        subscription: foundUser.subscription,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Delete the reset token
+    await resetToken.destroy();
 
-    res.json({ token, message: 'Password updated successfully' });
+    console.log(`Password reset successfully for user ${resetToken.userId}`);
+    res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
   } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ message: 'Error changing password', error: error.message });
+    console.error('Error resetting password:', error.message);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ message: 'Token has expired' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(400).json({ message: 'Invalid token' });
+    }
+    res.status(500).json({ message: 'Error resetting password', error: error.message });
   }
 });
 
