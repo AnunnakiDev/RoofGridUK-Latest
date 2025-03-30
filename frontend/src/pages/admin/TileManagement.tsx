@@ -56,6 +56,7 @@ const TileManagement: React.FC = () => {
   });
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const fetchTiles = async () => {
@@ -179,10 +180,10 @@ const TileManagement: React.FC = () => {
     }
   };
 
-  // Define DataGrid columns
+  // Define DataGrid columns with responsive widths
   const columns: GridColDef[] = [
-    { field: 'name', headerName: 'Name', width: 150, sortable: true },
-    { field: 'type', headerName: 'Type', width: 120, sortable: true },
+    { field: 'name', headerName: 'Name', flex: 1, minWidth: 150, sortable: true },
+    { field: 'type', headerName: 'Type', flex: 1, minWidth: 120, sortable: true },
     { field: 'length', headerName: 'Length', width: 100, sortable: true },
     { field: 'width', headerName: 'Width', width: 100, sortable: true },
     { field: 'crossbonded', headerName: 'Crossbonded', width: 120, sortable: true },
@@ -197,11 +198,10 @@ const TileManagement: React.FC = () => {
       width: 150,
       sortable: false,
       renderCell: (params) => (
-        <Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             color="primary"
             onClick={() => handleEditTile(params.row as Tile)}
-            sx={{ mr: 1 }}
           >
             Edit
           </Button>
@@ -227,10 +227,33 @@ const TileManagement: React.FC = () => {
   const tileTypes = Array.from(new Set(tiles.map((tile) => tile.type)));
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: '80px', sm: '100px' } }}>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold', color: '#1b75bc' }}>
+    <Box
+      sx={{
+        p: { xs: 2, sm: 3, md: 4 }, // Responsive padding
+        pt: { xs: '80px', sm: '100px' }, // Account for fixed navbar
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+      }}
+    >
+      {error && (
+        <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 800, mx: 'auto' }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2, width: '100%', maxWidth: 800, mx: 'auto' }}>
+          {success}
+        </Alert>
+      )}
+      <Typography
+        variant="h5"
+        sx={{
+          mb: 3,
+          fontWeight: 'bold',
+          color: '#1b75bc',
+          textAlign: { xs: 'center', sm: 'left' },
+        }}
+      >
         Tile Management
       </Typography>
       <Box
@@ -241,9 +264,18 @@ const TileManagement: React.FC = () => {
           alignItems: { xs: 'stretch', sm: 'center' },
           mb: 3,
           gap: 2,
+          flexWrap: 'wrap',
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, flex: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            flex: 1,
+            width: { xs: '100%', sm: 'auto' },
+          }}
+        >
           <TextField
             label="Search by Name"
             value={search}
@@ -265,13 +297,13 @@ const TileManagement: React.FC = () => {
             </Select>
           </FormControl>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, width: { xs: '100%', sm: 'auto' } }}>
           {selectedTiles.length > 0 && (
             <Button
               variant="contained"
               color="error"
               onClick={handleBulkDelete}
-              sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
+              sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' }, width: { xs: '100%', sm: 'auto' } }}
             >
               Delete Selected ({selectedTiles.length})
             </Button>
@@ -280,7 +312,7 @@ const TileManagement: React.FC = () => {
             variant="contained"
             color="primary"
             onClick={handleAddTile}
-            sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
+            sx={{ py: 1, fontSize: { xs: '0.9rem', sm: '1rem' }, width: { xs: '100%', sm: 'auto' } }}
           >
             Add New Tile
           </Button>
@@ -290,13 +322,17 @@ const TileManagement: React.FC = () => {
         <DataGrid
           rows={filteredTiles}
           columns={columns}
-          pageSize={10}
-          rowsPerPageOptions={[10, 20, 50]}
+          initialState={{
+            pagination: {
+              paginationModel: { pageSize: 10, page: 0 },
+            },
+          }}
+          pageSizeOptions={[10, 20, 50]}
           checkboxSelection
           onRowSelectionModelChange={(newSelection: GridRowSelectionModel) => {
             setSelectedTiles(newSelection as number[]);
           }}
-          disableSelectionOnClick
+          disableRowSelectionOnClick
           sx={{
             '& .MuiDataGrid-columnHeaders': {
               backgroundColor: '#1b75bc',
@@ -304,6 +340,13 @@ const TileManagement: React.FC = () => {
             },
             '& .MuiDataGrid-cell': {
               color: 'text.primary',
+            },
+            '& .MuiDataGrid-root': {
+              border: '1px solid #e0e0e0',
+            },
+            // Ensure horizontal scroll on mobile
+            '& .MuiDataGrid-main': {
+              overflowX: 'auto',
             },
           }}
         />

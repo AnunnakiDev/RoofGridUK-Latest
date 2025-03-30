@@ -13,12 +13,12 @@ const features = [
   },
   {
     title: 'Accurate Results',
-    description: 'BS 5534-compliant precision for tiles and battens.',
+    description: 'BS 5534-compliant precision for tiles and battens. The app calculates to full tiles when possible',
     image: '/images/home/results.png',
   },
   {
     title: 'Pro Features',
-    description: 'Full tile library, saved projects, and advanced tools.',
+    description: 'Full tile library, custom tiles, saved projects, and advanced tools.',
     image: '/images/home/library.png',
   },
   {
@@ -107,7 +107,7 @@ const Home: React.FC = () => {
               textAlign: 'center',
             }}
           >
-            Calculate tiles, battens, and more in seconds
+            Calculate exact batten and tile placement within minimal cutting
           </Typography>
           <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', zIndex: 1 }}>
             <Button
@@ -132,7 +132,7 @@ const Home: React.FC = () => {
         {/* Features Section */}
         <Container maxWidth="lg" sx={{ py: 6 }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', textAlign: 'center', mb: 6 }}>
-            Why RoofGrid UK?
+            Why Use RoofGrid UK?
           </Typography>
           {features.map((feature, index) => (
             <Fade in timeout={500} key={feature.title}>
