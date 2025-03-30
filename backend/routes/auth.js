@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { authenticateToken } = require('../middleware/auth'); // Add this import
 const { user, passwordResetToken } = require('../db');
 require('dotenv').config();
 
@@ -18,10 +19,10 @@ const transporter = nodemailer.createTransport({
 
 // POST /register - Register a new user
 router.post('/register', async (req, res) => {
-  const { username, email, password } = req.body;
-  console.log(`Received registration request for username: ${username}, email: ${email}`);
+  const { email, password } = req.body;
+  console.log(`Received registration request for email: ${email}`);
   try {
-    if (!username || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
     const existingUser = await user.findOne({ where: { email } });
@@ -31,7 +32,6 @@ router.post('/register', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const newUser = await user.create({
-      username,
       email,
       password: hashedPassword,
       role: 'user',
@@ -51,13 +51,13 @@ router.post('/register', async (req, res) => {
 
 // POST /login - Login a user
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  console.log(`Received login request for username: ${username}`);
+  const { email, password } = req.body;
+  console.log(`Received login request for email: ${email}`);
   try {
-    if (!username || !password) {
+    if (!email || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-    const existingUser = await user.findOne({ where: { username } });
+    const existingUser = await user.findOne({ where: { email } });
     if (!existingUser) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -183,6 +183,49 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Invalid token' });
     }
     res.status(500).json({ message: 'Error resetting password', error: error.message });
+  }
+});
+
+// POST /change-password - Change password for logged-in user
+router.post('/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  try {
+    console.log(`Received password change request for user ${userId}`);
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    // Find the user
+    const existingUser = await user.findOne({ where: { id: userId } });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify the current password
+    const isMatch = await bcrypt.compare(currentPassword, existingUser.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Hash the new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update the user's password
+    await user.update(
+      { password: hashedPassword },
+      { where: { id: userId } }
+    );
+
+    console.log(`Password changed successfully for user ${userId}`);
+    res.json({ message: 'Password changed successfully. Please log in again.' });
+  } catch (error) {
+    console.error('Error changing password:', error.message);
+    res.status(500).json({ message: 'Error changing password', error: error.message });
   }
 });
 

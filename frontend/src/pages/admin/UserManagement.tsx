@@ -21,6 +21,7 @@ import {
   MenuItem,
   TextField,
   Button,
+  Pagination,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import EditIcon from '@mui/icons-material/Edit';
@@ -38,7 +39,7 @@ const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [sectionExpanded, setSectionExpanded] = useState<boolean>(true); // Open by default
+  const [sectionExpanded, setSectionExpanded] = useState<boolean>(true);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -49,35 +50,34 @@ const UserManagement: React.FC = () => {
     role: 'user' as 'admin' | 'user',
     subscription: 'basic' as 'basic' | 'pro',
   });
-  const [formErrors, setFormErrors] = useState<{ email?: string; password?: string }>({});
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [search, setSearch] = useState(''); // Add search state
+  const limit = 10; // Number of users per page
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await api.get('/api/admin/users');
-        setUsers(response.data);
+        const response = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+        setUsers(response.data.users);
+        setTotalPages(response.data.totalPages);
+        setTotalUsers(response.data.totalUsers);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch users');
       }
     };
 
     fetchUsers();
-  }, []);
+  }, [page, search]); // Add search to dependencies
 
-  const validateEmail = (email: string): string | undefined => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) return 'Email is required';
-    if (!emailRegex.test(email)) return 'Please enter a valid email address';
-    return undefined;
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
   };
 
-  const validatePassword = (password: string): string | undefined => {
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!password) return 'Password is required';
-    if (!passwordRegex.test(password)) {
-      return 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character';
-    }
-    return undefined;
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page on search
   };
 
   const handleAddUser = () => {
@@ -87,13 +87,11 @@ const UserManagement: React.FC = () => {
       role: 'user',
       subscription: 'basic',
     });
-    setFormErrors({});
     setOpenAddDialog(true);
   };
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
-    setFormErrors({});
     setOpenEditDialog(true);
   };
 
@@ -110,13 +108,11 @@ const UserManagement: React.FC = () => {
       role: 'user',
       subscription: 'basic',
     });
-    setFormErrors({});
   };
 
   const handleEditDialogClose = () => {
     setOpenEditDialog(false);
     setSelectedUser(null);
-    setFormErrors({});
   };
 
   const handleDeleteDialogClose = () => {
@@ -126,23 +122,16 @@ const UserManagement: React.FC = () => {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validate form
-    const emailError = validateEmail(newUser.email);
-    const passwordError = validatePassword(newUser.password);
-    if (emailError || passwordError) {
-      setFormErrors({
-        email: emailError,
-        password: passwordError,
-      });
-      return;
-    }
-
     try {
       const response = await api.post('/api/admin/users', newUser);
       setUsers([...users, response.data]);
       setSuccess('User created successfully');
       handleAddDialogClose();
+      // Refresh the user list
+      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      setUsers(fetchResponse.data.users);
+      setTotalPages(fetchResponse.data.totalPages);
+      setTotalUsers(fetchResponse.data.totalUsers);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create user');
     }
@@ -151,13 +140,6 @@ const UserManagement: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-
-    // Validate email (in case it was edited)
-    const emailError = validateEmail(selectedUser.email);
-    if (emailError) {
-      setFormErrors({ email: emailError });
-      return;
-    }
 
     try {
       const response = await api.put(`/api/admin/users/${selectedUser.id}`, {
@@ -180,6 +162,11 @@ const UserManagement: React.FC = () => {
       setUsers(users.filter((user) => user.id !== selectedUser.id));
       setSuccess('User deleted successfully');
       handleDeleteDialogClose();
+      // Refresh the user list
+      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      setUsers(fetchResponse.data.users);
+      setTotalPages(fetchResponse.data.totalPages);
+      setTotalUsers(fetchResponse.data.totalUsers);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete user');
     }
@@ -187,15 +174,11 @@ const UserManagement: React.FC = () => {
 
   const handleNewUserChange = (field: keyof typeof newUser, value: string) => {
     setNewUser({ ...newUser, [field]: value });
-    // Clear error for the field being edited
-    setFormErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleUserChange = (field: keyof User, value: string) => {
     if (selectedUser) {
       setSelectedUser({ ...selectedUser, [field]: value });
-      // Clear error for the field being edited
-      setFormErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
@@ -217,79 +200,114 @@ const UserManagement: React.FC = () => {
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'flex-end',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'stretch', sm: 'center' },
               mb: 2,
               px: { xs: 1, sm: 0 },
+              gap: 2,
             }}
           >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleAddUser}
-              sx={{
-                py: 1,
-                fontSize: { xs: '0.9rem', sm: '1rem' },
-                width: { xs: '100%', sm: 'auto' },
-              }}
-            >
-              Add New User
-            </Button>
+            <TextField
+              label="Search by Email"
+              value={search}
+              onChange={handleSearchChange}
+              fullWidth
+              sx={{ maxWidth: { xs: '100%', sm: 300 } }}
+              InputLabelProps={{ style: { color: '#1b75bc' } }}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1">
+                Total Users: {totalUsers}
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleAddUser}
+                sx={{
+                  py: 1,
+                  fontSize: { xs: '0.9rem', sm: '1rem' },
+                  width: { xs: 'auto', sm: 'auto' },
+                }}
+              >
+                Add New User
+              </Button>
+            </Box>
           </Box>
           {users.length === 0 ? (
             <Typography align="center" color="text.secondary">
               No users found.
             </Typography>
           ) : (
-            <Box sx={{ overflowX: 'auto' }}>
-              {users.map((user) => (
-                <Accordion key={user.id} sx={{ mb: 1 }} defaultExpanded>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                      <Typography
-                        variant="h6"
-                        sx={{ fontWeight: 'medium', color: 'primary.main', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}
-                      >
-                        {user.email}
-                      </Typography>
-                      <Box>
-                        <IconButton onClick={(e) => { e.stopPropagation(); handleEditUser(user); }} color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={(e) => { e.stopPropagation(); handleDeleteUser(user); }} color="error">
-                          <DeleteIcon />
-                        </IconButton>
+            <>
+              <Box sx={{ overflowX: 'auto' }}>
+                {users.map((user) => (
+                  <Accordion key={user.id} sx={{ mb: 1 }} defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                        <Typography
+                          variant="h6"
+                          sx={{ fontWeight: 'medium', color: 'primary.main', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}
+                        >
+                          {user.email}
+                        </Typography>
+                        <Box>
+                          <IconButton onClick={(e) => { e.stopPropagation(); handleEditUser(user); }} color="primary">
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton onClick={(e) => { e.stopPropagation(); handleDeleteUser(user); }} color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box sx={{ overflowX: 'auto' }}>
-                      <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Email</TableCell>
-                            <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                              {user.email}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Role</TableCell>
-                            <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                              {user.role}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Subscription</TableCell>
-                            <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                              {user.subscription}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
-              ))}
-            </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ overflowX: 'auto' }}>
+                        <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Email</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                {user.email}
+                              </TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Role</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                {user.role}
+                              </TableCell>
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Subscription</TableCell>
+                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
+                                {user.subscription}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={handlePageChange}
+                  color="primary"
+                  sx={{
+                    '& .MuiPaginationItem-root': {
+                      color: '#1b75bc',
+                    },
+                    '& .Mui-selected': {
+                      bgcolor: '#1b75bc',
+                      color: 'white',
+                    },
+                  }}
+                />
+              </Box>
+            </>
           )}
         </AccordionDetails>
       </Accordion>
@@ -307,8 +325,6 @@ const UserManagement: React.FC = () => {
               margin="normal"
               required
               type="email"
-              error={!!formErrors.email}
-              helperText={formErrors.email}
             />
             <TextField
               label="Password"
@@ -318,8 +334,6 @@ const UserManagement: React.FC = () => {
               margin="normal"
               required
               type="password"
-              error={!!formErrors.password}
-              helperText={formErrors.password}
             />
             <FormControl fullWidth margin="normal">
               <InputLabel>Role</InputLabel>
@@ -361,18 +375,9 @@ const UserManagement: React.FC = () => {
         <DialogContent>
           {selectedUser && (
             <Box component="form" onSubmit={handleEditSubmit} sx={{ mt: 2 }}>
-              <TextField
-                label="Email"
-                value={selectedUser.email}
-                onChange={(e) => handleUserChange('email', e.target.value)}
-                fullWidth
-                margin="normal"
-                required
-                type="email"
-                error={!!formErrors.email}
-                helperText={formErrors.email}
-                disabled // Prevent editing email to avoid complexity with uniqueness constraints
-              />
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Email: {selectedUser.email}
+              </Typography>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Role</InputLabel>
                 <Select

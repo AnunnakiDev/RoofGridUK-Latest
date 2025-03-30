@@ -27,9 +27,9 @@ const Navbar: React.FC = () => {
   const navItems = [
     { label: 'Home', path: '/' },
     { label: 'Calculator', path: '/calculator' },
-    { label: 'How to Use', path: '/how-to-use' },
-    { label: 'App Benefits', path: '/app-benefits' },
-    { label: 'Pro Tips', path: '/pro-tips' },
+    { label: 'How to Use', path: '/how-to-use' },      // Fixed path
+    { label: 'App Benefits', path: '/app-benefits' }, // Fixed path
+    { label: 'Pro Tips', path: '/pro-tips' },         // Fixed path
     { label: 'Resources', path: '/resources' },
   ];
 

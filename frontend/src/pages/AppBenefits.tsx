@@ -1,122 +1,206 @@
 import React from 'react';
-import { Box, Typography, Container, Grid, Card, CardContent } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import PrecisionIcon from '@mui/icons-material/PrecisionManufacturing';
+import PhoneIcon from '@mui/icons-material/PhoneAndroid';
+import StarIcon from '@mui/icons-material/Star';
+import MoneyIcon from '@mui/icons-material/MonetizationOn';
+import DecisionIcon from '@mui/icons-material/Assessment';
 
-const AppBenefits: React.FC = () => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-    <Navbar />
-    <Box
-      sx={{
-        flexGrow: 1,
-        pt: { xs: '64px', md: '80px' },
-        pb: { xs: '100px', md: '120px' },
-        bgcolor: '#f5f5f5',
-      }}
-    >
-      {/* Hero Section */}
-      <Box
+const AppBenefits: React.FC = () => {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Navbar />
+      <Container
+        maxWidth="lg"
         sx={{
-          bgcolor: '#1b75bc',
-          color: 'white',
-          py: { xs: 6, md: 8 },
-          textAlign: 'center',
-          background: 'linear-gradient(135deg, #1b75bc 0%, #0d47a1 100%)',
+          flexGrow: 1,
+          py: { xs: 2, md: 4 },
+          pt: { xs: '64px', md: '80px' },
+          pb: { xs: '160px', md: '180px' },
         }}
       >
-        <Container maxWidth="lg">
-          <Typography variant="h2" sx={{ fontWeight: 'bold', mb: 2, fontSize: { xs: '2.5rem', md: '4rem' } }}>
-            Benefits of RoofGrid UK
-          </Typography>
-          <Typography variant="h5" sx={{ mb: 4, fontSize: { xs: '1.2rem', md: '1.5rem' } }}>
-            Discover How RoofGrid UK Can Transform Your Roofing Projects
-          </Typography>
-        </Container>
-      </Box>
-
-      {/* Benefits Section */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography variant="h4" align="center" sx={{ fontWeight: 'bold', mb: 6, color: '#1b75bc' }}>
-          Why RoofGrid UK?
+        <Typography
+          variant="h2"
+          align="center"
+          gutterBottom
+          sx={{ color: '#1b75bc', fontWeight: 'bold', mb: 4 }}
+        >
+          Benefits of Using RoofGrid UK
         </Typography>
-        <Grid container spacing={4}>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  Save Time and Effort
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  RoofGrid UK streamlines your workflow by automating complex roofing calculations. Measure your roof once, input the data, and let the app handle the rest—saving you hours of manual work.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  Ensure Accuracy
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Our calculator ensures precise batten positions and tile placement, helping you comply with BS 5534 standards. Avoid costly mistakes with real-time validation of your inputs.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  Work Anywhere
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  With a mobile-friendly design and offline capability, RoofGrid UK lets you perform calculations on-site, even in rural areas with limited connectivity.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  Unlock Pro Features
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Upgrade to Pro to access the full tile library, save custom tiles, and manage projects. Store your work securely and revisit it anytime, all for a small subscription fee.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  Stay Informed with Weather Data
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Plan your projects with confidence using real-time weather data. RoofGrid UK integrates with OpenWeatherMap to provide forecasts, helping you schedule work around the weather.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ height: '100%', boxShadow: 3, transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc' }}>
-                  User-Friendly Interface
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Designed with simplicity in mind, RoofGrid UK offers an intuitive interface with tooltips and real-time validation, making it easy for both professionals and DIY enthusiasts to use.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <Typography variant="body1" color="text.secondary" paragraph>
+          RoofGrid UK is designed to streamline your roofing projects, providing accurate calculations and a user-friendly interface that saves you time and effort. Whether you're a professional roofer or a DIY enthusiast, our app offers numerous advantages:
+        </Typography>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1504307651254-35680f356dfd)', // Replace with your image
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0, 0, 0, 0.5)', // Overlay for readability
+              borderRadius: 2,
+            },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <SpeedIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              1. Speed Up Your Workflow
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Automated Calculations</strong>: Say goodbye to manual calculations. Our app quickly computes the number of tiles needed, batten spacing, and more, based on your inputs.<br />
+            - <strong>Efficient Project Management</strong>: For Pro users, save and manage multiple projects, allowing you to switch between tasks seamlessly.
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1508775707796-c3f80d7fed46)',
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <PrecisionIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              2. Accurate and Reliable Results
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Precision Engineering</strong>: Our calculations are based on industry standards and best practices, ensuring your roofing projects meet quality expectations.<br />
+            - <strong>Custom Tile Data</strong>: Input specific tile dimensions or select from our extensive library to get precise results tailored to your materials.
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1519389950473-47ba0277781c)',
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <PhoneIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              3. Mobile-Friendly Design
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Access Anywhere</strong>: Use the app on your smartphone or tablet while on-site, making it easy to adjust plans and calculations in real-time.<br />
+            - <strong>Intuitive Interface</strong>: Navigate through the app effortlessly with a clean and straightforward design.
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1517430816045-df4b7de11d1d)',
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <StarIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              4. Pro Features for Advanced Users
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Save Custom Tiles</strong>: Create and store your own tile profiles for quick access in future projects.<br />
+            - <strong>Project Saving</strong>: Keep track of multiple projects, each with their own set of calculations and settings.<br />
+            - <strong>Comprehensive Tile Library</strong>: Access a wide range of pre-defined tiles, saving you time on data entry.
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1556740738-b6a63e27c4df)',
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <MoneyIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              5. Cost-Effective Solution
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Free Basic Access</strong>: Get started with essential features at no cost.<br />
+            - <strong>Affordable Pro Subscription</strong>: Unlock advanced features with a small monthly fee, providing excellent value for professional roofers.
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1454165804606-c3d57bc86b40)',
+            backgroundAttachment: 'fixed',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            p: 3,
+            borderRadius: 2,
+            mb: 3,
+            position: 'relative',
+            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+            <DecisionIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
+            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
+              6. Enhanced Decision Making
+            </Typography>
+          </Box>
+          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
+            - <strong>Weather Integration</strong>: Check local weather conditions to plan your projects effectively.<br />
+            - <strong>Detailed Results</strong>: View comprehensive calculation results, including total tiles needed, half tiles, and more.
+          </Typography>
+        </Box>
+
+        <Typography variant="body1" color="text.secondary" align="center">
+          By choosing RoofGrid UK, you're equipping yourself with a powerful tool that enhances productivity, ensures accuracy, and simplifies your roofing projects.
+        </Typography>
       </Container>
+      <Footer />
     </Box>
-    <Footer />
-  </Box>
-);
+  );
+};
 
 export default AppBenefits;

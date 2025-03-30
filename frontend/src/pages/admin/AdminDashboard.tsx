@@ -1,30 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, Button, Card, CardContent, Grid } from '@mui/material';
-import { useNavigate, Link } from 'react-router-dom';
-import { useUser } from '../../context/UserContext';
+import { Box, Typography, Tabs, Tab, Card, CardContent, Grid } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
-interface AdminStats {
-  tileCount: number;
-  userCount: number;
-}
-
 const AdminDashboard: React.FC = () => {
-  const { user } = useUser();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<AdminStats>({ tileCount: 0, userCount: 0 });
+  const [stats, setStats] = useState({ tileCount: 0, userCount: 0, customTileCount: 0, projectCount: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
-    if (!user.id) {
-      navigate('/login');
-      return;
-    }
-    if (user.role !== 'admin') {
-      navigate('/profile');
-      return;
-    }
-
     const fetchStats = async () => {
       try {
         const response = await api.get('/api/admin/stats');
@@ -35,129 +20,114 @@ const AdminDashboard: React.FC = () => {
     };
 
     fetchStats();
-  }, [user.id, user.role, navigate]);
+  }, []);
 
-  const navItems = [
-    { label: 'Saved Projects', path: '/admin/projects' },
-    ...(user.subscription === 'pro' ? [{ label: 'Personal Tiles', path: '/admin/personal-tiles' }] : []),
-    { label: 'Tile Management', path: '/admin/tile-management' },
-    { label: 'User Management', path: '/admin/user-management' },
-  ];
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+    switch (newValue) {
+      case 0:
+        navigate('/admin/projects');
+        break;
+      case 1:
+        navigate('/admin/personal-tiles');
+        break;
+      case 2:
+        navigate('/admin/tile-management');
+        break;
+      case 3:
+        navigate('/admin/user-management');
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
-    <>
-      <Typography
-        variant="h4"
-        align="center"
-        sx={{ fontWeight: 'bold', mb: 2, color: '#1b75bc', fontSize: { xs: '1.5rem', sm: '2rem' } }}
-      >
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
         Admin Dashboard
       </Typography>
-      <Typography
-        align="center"
-        sx={{ mb: 4, color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' }, px: 2 }}
-      >
-        Welcome back {user.email}, manage default tiles, users, and your saved projects and personal tiles.
-      </Typography>
-
-      {/* Navigation Menu */}
-      <Box
-        sx={{
-          mb: 4,
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' }, // Stack vertically on mobile
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 2,
-          px: { xs: 1, sm: 0 }, // Add padding on mobile
-        }}
-      >
-        {navItems.map((item) => (
-          <Button
-            key={item.label}
-            component={Link}
-            to={item.path}
-            variant="contained"
-            sx={{
-              bgcolor: '#1b75bc',
-              color: 'white',
-              fontWeight: 'bold',
-              textTransform: 'none',
-              fontSize: { xs: '0.9rem', sm: '1rem' }, // Smaller font on mobile
-              px: { xs: 2, sm: 3 },
-              py: 1,
-              borderRadius: '8px',
-              width: { xs: '100%', sm: 'auto' }, // Full width on mobile
-              maxWidth: { xs: '300px', sm: 'none' }, // Limit width on mobile
-              '&:hover': {
-                bgcolor: '#1565c0',
-              },
-            }}
-          >
-            {item.label}
-          </Button>
-        ))}
-      </Box>
-
-      {/* Statistics Section */}
       {error && (
-        <Typography align="center" color="error" sx={{ mb: 2, px: 2 }}>
+        <Typography color="error" sx={{ mb: 2 }}>
           {error}
         </Typography>
       )}
-      <Box sx={{ maxWidth: 800, mx: 'auto', px: { xs: 1, sm: 0 } }}>
-        <Typography
-          variant="h5"
-          align="center"
-          sx={{ fontWeight: 'bold', mb: 3, color: '#1b75bc', fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
-        >
-          System Statistics
-        </Typography>
-        <Grid container spacing={2} justifyContent="center">
-          <Grid item xs={12} sm={6}>
-            <Card sx={{ bgcolor: '#f5f5f5', borderRadius: '8px' }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  align="center"
-                  sx={{ fontWeight: 'bold', color: '#1b75bc', fontSize: { xs: '1rem', sm: '1.25rem' } }}
-                >
-                  Total Tiles
-                </Typography>
-                <Typography
-                  variant="h4"
-                  align="center"
-                  sx={{ mt: 1, color: 'text.primary', fontSize: { xs: '1.5rem', sm: '2rem' } }}
-                >
-                  {stats.tileCount}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Card sx={{ bgcolor: '#f5f5f5', borderRadius: '8px' }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  align="center"
-                  sx={{ fontWeight: 'bold', color: '#1b75bc', fontSize: { xs: '1rem', sm: '1.25rem' } }}
-                >
-                  Total Users
-                </Typography>
-                <Typography
-                  variant="h4"
-                  align="center"
-                  sx={{ mt: 1, color: 'text.primary', fontSize: { xs: '1.5rem', sm: '2rem' } }}
-                >
-                  {stats.userCount}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+      <Tabs
+        value={tabValue}
+        onChange={handleTabChange}
+        centered
+        sx={{
+          mb: 4,
+          bgcolor: '#f5f5f5',
+          borderRadius: 1,
+          '& .MuiTab-root': {
+            fontSize: { xs: '0.9rem', sm: '1rem' },
+            fontWeight: 'bold',
+            color: '#1b75bc',
+            textTransform: 'none',
+            padding: { xs: '8px 16px', sm: '12px 24px' },
+          },
+          '& .Mui-selected': {
+            color: '#ffffff',
+            bgcolor: '#1b75bc',
+            borderRadius: 1,
+          },
+          '& .MuiTabs-indicator': {
+            display: 'none',
+          },
+        }}
+      >
+        <Tab label="Saved Projects" />
+        <Tab label="Personal Tiles" />
+        <Tab label="Tile Management" />
+        <Tab label="User Management" />
+      </Tabs>
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold', color: '#1b75bc' }}>
+        System Statistics
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ bgcolor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+                Total Default Tiles
+              </Typography>
+              <Typography variant="h4">{stats.tileCount}</Typography>
+            </CardContent>
+          </Card>
         </Grid>
-      </Box>
-    </>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ bgcolor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+                Total Users
+              </Typography>
+              <Typography variant="h4">{stats.userCount}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ bgcolor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+                Total Custom Tiles
+              </Typography>
+              <Typography variant="h4">{stats.customTileCount}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ bgcolor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+                Total Saved Projects
+              </Typography>
+              <Typography variant="h4">{stats.projectCount}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 

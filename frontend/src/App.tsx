@@ -6,19 +6,21 @@ import Home from './pages/Home';
 import Calculator from './pages/Calculator';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import SavedProjects from './pages/SavedProjects';
+import SavedProjects from './pages/SavedProjects'; // This might be redundant with /admin/projects
 import Profile from './pages/Profile';
 import CustomTiles from './pages/CustomTiles';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminSavedProjects from './pages/admin/SavedProjects';
+import AdminSavedProjects from './pages/admin/SavedProjects'; // Renamed to avoid conflict
 import PersonalTiles from './pages/admin/PersonalTiles';
 import TileManagement from './pages/admin/TileManagement';
 import UserManagement from './pages/admin/UserManagement';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Disclaimer from './pages/Disclaimer';
 import TermsOfService from './pages/TermsOfService';
-import ResetPassword from './pages/ResetPassword'; // Add this line
+import AppBenefits from './pages/AppBenefits'; // New import
+import HowToUse from './pages/HowToUse';       // New import
+import ProTips from './pages/ProTips';         // New import
 
 const App: React.FC = () => {
   return (
@@ -30,13 +32,15 @@ const App: React.FC = () => {
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/saved-projects" element={<SavedProjects />} />
+            <Route path="/saved-projects" element={<SavedProjects />} /> {/* Existing route */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/custom-tiles" element={<CustomTiles />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/disclaimer" element={<Disclaimer />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/reset-password" element={<ResetPassword />} /> {/* Add this line */}
+            <Route path="/app-benefits" element={<AppBenefits />} /> {/* New route */}
+            <Route path="/how-to-use" element={<HowToUse />} />      {/* New route */}
+            <Route path="/pro-tips" element={<ProTips />} />         {/* New route */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="profile" element={<AdminDashboard />} />
               <Route path="projects" element={<AdminSavedProjects />} />

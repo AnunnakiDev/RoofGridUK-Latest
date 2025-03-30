@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Box, Typography, TextField, Button, Alert, Link, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode'; // Change to named import
+import { jwtDecode } from 'jwt-decode';
 import { useUser } from '../context/UserContext';
 import api from '../services/api';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 interface JwtPayload {
   id: number;
@@ -15,7 +17,7 @@ interface JwtPayload {
 const Login: React.FC = () => {
   const { setUser } = useUser();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState(''); // Changed from username to email
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -27,7 +29,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
-      const response = await api.post('/api/auth/login', { username, password });
+      const response = await api.post('/api/auth/login', { email, password }); // Changed from username to email
       const token = response.data.token;
       const decoded: JwtPayload = jwtDecode(token);
       setUser({
@@ -78,94 +80,105 @@ const Login: React.FC = () => {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         minHeight: '100vh',
-        bgcolor: 'background.default',
-        p: 2,
       }}
     >
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
-        Login
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
-        <TextField
-          label="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-        />
-        <TextField
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{ mt: 2, py: 1.5, fontSize: '1rem' }}
-        >
+      <Navbar />
+      <Box
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: { xs: 2, sm: 3 },
+          pt: { xs: '80px', sm: '100px' },
+        }}
+      >
+        <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
           Login
-        </Button>
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Link
-            component="button"
-            variant="body2"
-            onClick={handleForgotPasswordOpen}
-            sx={{ color: '#1b75bc', textDecoration: 'underline' }}
+        </Typography>
+        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{error}</Alert>}
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
+          <TextField
+            label="Email" // Changed from Username to Email
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            type="email" // Added type="email" for better validation
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            sx={{ mt: 2, py: 1.5, fontSize: '1rem', bgcolor: '#1b75bc' }}
           >
-            Forgot Password?
-          </Link>
-        </Box>
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Don't have an account?{' '}
-            <Link href="/register" sx={{ color: '#1b75bc', textDecoration: 'underline' }}>
-              Sign Up
+            Login
+          </Button>
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Link
+              component="button"
+              variant="body2"
+              onClick={handleForgotPasswordOpen}
+              sx={{ color: '#1b75bc', textDecoration: 'underline' }}
+            >
+              Forgot Password?
             </Link>
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Forgot Password Dialog */}
-      <Dialog open={openForgotPasswordDialog} onClose={handleForgotPasswordClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Forgot Password</DialogTitle>
-        <DialogContent>
-          {forgotError && <Alert severity="error" sx={{ mb: 2 }}>{forgotError}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-          <Typography sx={{ mb: 2 }}>
-            Enter your email address below, and we'll send you a link to reset your password.
-          </Typography>
-          <Box component="form" onSubmit={handleForgotPasswordSubmit}>
-            <TextField
-              label="Email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              fullWidth
-              margin="normal"
-              required
-              type="email"
-            />
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleForgotPasswordClose} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleForgotPasswordSubmit} color="primary">
-            Send Reset Link
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Typography variant="body2">
+              Don't have an account?{' '}
+              <Link href="/register" sx={{ color: '#1b75bc', textDecoration: 'underline' }}>
+                Sign Up
+              </Link>
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Forgot Password Dialog */}
+        <Dialog open={openForgotPasswordDialog} onClose={handleForgotPasswordClose} maxWidth="sm" fullWidth>
+          <DialogTitle>Forgot Password</DialogTitle>
+          <DialogContent>
+            {forgotError && <Alert severity="error" sx={{ mb: 2 }}>{forgotError}</Alert>}
+            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            <Typography sx={{ mb: 2 }}>
+              Enter your email address below, and we'll send you a link to reset your password.
+            </Typography>
+            <Box component="form" onSubmit={handleForgotPasswordSubmit}>
+              <TextField
+                label="Email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                fullWidth
+                margin="normal"
+                required
+                type="email"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleForgotPasswordClose} color="secondary">
+              Cancel
+            </Button>
+            <Button onClick={handleForgotPasswordSubmit} color="primary">
+              Send Reset Link
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+      <Footer />
     </Box>
   );
 };

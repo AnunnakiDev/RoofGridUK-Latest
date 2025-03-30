@@ -1,50 +1,39 @@
 import React, { useState } from 'react';
-import { TextField, Button, Box, Typography, Alert } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Box, Typography, TextField, Button, Alert, Link } from '@mui/material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom'; // Import Link as RouterLink
 import { jwtDecode } from 'jwt-decode';
-import api from '../services/api';
 import { useUser } from '../context/UserContext';
+import api from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 interface JwtPayload {
   id: number;
-  username: string;
-  email: string;
   role: string;
   subscription: string;
-}
-
-interface User {
-  id: number | null;
-  token: string | null;
-  role: string | null;
-  subscription: string | null;
-  email: string | null; // Added email field
+  email: string;
 }
 
 const Register: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const { setUser } = useUser();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { setUser } = useUser();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/auth/register', { username, email, password });
-      const loginResponse = await api.post('/api/auth/login', { username, password });
-      const token = loginResponse.data.token;
+      const response = await api.post('/api/auth/register', { email, password });
+      const token = response.data.token;
       const decoded: JwtPayload = jwtDecode(token);
       setUser({
         id: decoded.id,
         token: token,
         role: decoded.role,
         subscription: decoded.subscription,
-        email: decoded.email, // Include email in the user context
+        email: decoded.email,
       });
       navigate('/calculator');
     } catch (err: any) {
@@ -53,41 +42,38 @@ const Register: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       <Navbar />
       <Box
         sx={{
           flexGrow: 1,
-          maxWidth: 400,
-          mx: 'auto',
-          pt: { xs: '64px', md: '80px' }, // Adjust for Navbar height + safe area
-          pb: { xs: '80px', md: '100px' }, // Adjust for Footer height + safe area
-          p: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: { xs: 2, sm: 3 },
+          pt: { xs: '80px', sm: '100px' },
         }}
       >
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+        <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
           Register
         </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <form onSubmit={handleSubmit}>
-          <TextField
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
-            variant="outlined"
-          />
+        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{error}</Alert>}
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
           <TextField
             label="Email"
-            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
             margin="normal"
             required
-            variant="outlined"
+            type="email"
           />
           <TextField
             label="Password"
@@ -97,18 +83,29 @@ const Register: React.FC = () => {
             fullWidth
             margin="normal"
             required
-            variant="outlined"
           />
-          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2, py: 1.5, fontSize: '1.2rem' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            sx={{ mt: 2, py: 1.5, fontSize: '1rem', bgcolor: '#1b75bc' }}
+          >
             Register
           </Button>
-        </form>
-        <Typography align="center" sx={{ mt: 2 }}>
-          Already have an account?{' '}
-          <Button color="primary" onClick={() => navigate('/login')}>
-            Login
-          </Button>
-        </Typography>
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Link
+                component={RouterLink}
+                to="/login"
+                sx={{ color: '#1b75bc', textDecoration: 'underline' }}
+              >
+                Login
+              </Link>
+            </Typography>
+          </Box>
+        </Box>
       </Box>
       <Footer />
     </Box>
