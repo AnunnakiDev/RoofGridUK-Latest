@@ -22,7 +22,8 @@ import AppBenefits from './pages/AppBenefits';
 import HowToUse from './pages/HowToUse';
 import ProTips from './pages/ProTips';
 import FAQ from './pages/FAQ';
-import Contact from './pages/Contact'; // New import
+import Contact from './pages/Contact';
+import Resources from './pages/Resources'; // New import
 
 const App: React.FC = () => {
   return (
@@ -44,7 +45,8 @@ const App: React.FC = () => {
             <Route path="/how-to-use" element={<HowToUse />} />
             <Route path="/pro-tips" element={<ProTips />} />
             <Route path="/faq" element={<FAQ />} />
-            <Route path="/contact" element={<Contact />} /> {/* New route */}
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/resources" element={<Resources />} /> {/* New route */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="profile" element={<AdminDashboard />} />
               <Route path="projects" element={<AdminSavedProjects />} />

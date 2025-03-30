@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Tabs, Tab, Card, CardContent, Grid } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, Link } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
+// Import icons from Material-UI
+import TilesIcon from '@mui/icons-material/Dashboard'; // For Total Default Tiles
+import PeopleIcon from '@mui/icons-material/People'; // For Total Users
+import CustomTilesIcon from '@mui/icons-material/Extension'; // For Total Custom Tiles
+import ProjectsIcon from '@mui/icons-material/Folder'; // For Total Saved Projects
+
+interface Stats {
+  tileCount: number;
+  userCount: number;
+  customTileCount: number;
+  projectCount: number;
+}
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ tileCount: 0, userCount: 0, customTileCount: 0, projectCount: 0 });
+  const [stats, setStats] = useState<Stats>({ tileCount: 0, userCount: 0, customTileCount: 0, projectCount: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -22,107 +34,182 @@ const AdminDashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-    switch (newValue) {
-      case 0:
-        navigate('/admin/projects');
-        break;
-      case 1:
-        navigate('/admin/personal-tiles');
-        break;
-      case 2:
-        navigate('/admin/tile-management');
-        break;
-      case 3:
-        navigate('/admin/user-management');
-        break;
-      default:
-        break;
-    }
+  // Navigation handlers for each card
+  const handleNavigate = (path: string) => {
+    navigate(path);
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* Header */}
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold' }}>
         Admin Dashboard
       </Typography>
+
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
           {error}
         </Typography>
       )}
-      <Tabs
-        value={tabValue}
-        onChange={handleTabChange}
-        centered
-        sx={{
-          mb: 4,
-          bgcolor: '#f5f5f5',
-          borderRadius: 1,
-          '& .MuiTab-root': {
-            fontSize: { xs: '0.9rem', sm: '1rem' },
-            fontWeight: 'bold',
-            color: '#1b75bc',
-            textTransform: 'none',
-            padding: { xs: '8px 16px', sm: '12px 24px' },
-          },
-          '& .Mui-selected': {
-            color: '#ffffff',
-            bgcolor: '#1b75bc',
-            borderRadius: 1,
-          },
-          '& .MuiTabs-indicator': {
-            display: 'none',
-          },
-        }}
-      >
-        <Tab label="Saved Projects" />
-        <Tab label="Personal Tiles" />
-        <Tab label="Tile Management" />
-        <Tab label="User Management" />
-      </Tabs>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold', color: '#1b75bc' }}>
+
+      {/* System Statistics Section */}
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: 'medium', color: '#1b75bc' }}>
         System Statistics
       </Typography>
+
       <Grid container spacing={2}>
+        {/* Total Default Tiles Card */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f5f5f5' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+          <Card
+            sx={{
+              bgcolor: '#ffffff',
+              boxShadow: 1,
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: 3,
+                transform: 'scale(1.02)',
+                cursor: 'pointer',
+              },
+            }}
+            onClick={() => handleNavigate('/admin/tile-management')}
+          >
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <TilesIcon sx={{ fontSize: 40, color: '#1b75bc', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {stats.tileCount}
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
                 Total Default Tiles
               </Typography>
-              <Typography variant="h4">{stats.tileCount}</Typography>
+              <Link
+                component="button"
+                underline="hover"
+                sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click from triggering
+                  handleNavigate('/admin/tile-management');
+                }}
+              >
+                View Details
+              </Link>
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Total Users Card */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f5f5f5' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+          <Card
+            sx={{
+              bgcolor: '#ffffff',
+              boxShadow: 1,
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: 3,
+                transform: 'scale(1.02)',
+                cursor: 'pointer',
+              },
+            }}
+            onClick={() => handleNavigate('/admin/user-management')}
+          >
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <PeopleIcon sx={{ fontSize: 40, color: '#1b75bc', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {stats.userCount}
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
                 Total Users
               </Typography>
-              <Typography variant="h4">{stats.userCount}</Typography>
+              <Link
+                component="button"
+                underline="hover"
+                sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNavigate('/admin/user-management');
+                }}
+              >
+                View Details
+              </Link>
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Total Custom Tiles Card */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f5f5f5' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+          <Card
+            sx={{
+              bgcolor: '#ffffff',
+              boxShadow: 1,
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: 3,
+                transform: 'scale(1.02)',
+                cursor: 'pointer',
+              },
+            }}
+            onClick={() => handleNavigate('/admin/personal-tiles')}
+          >
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <CustomTilesIcon sx={{ fontSize: 40, color: '#1b75bc', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {stats.customTileCount}
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
                 Total Custom Tiles
               </Typography>
-              <Typography variant="h4">{stats.customTileCount}</Typography>
+              <Link
+                component="button"
+                underline="hover"
+                sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNavigate('/admin/personal-tiles');
+                }}
+              >
+                View Details
+              </Link>
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Total Saved Projects Card */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f5f5f5' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
+          <Card
+            sx={{
+              bgcolor: '#ffffff',
+              boxShadow: 1,
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: 3,
+                transform: 'scale(1.02)',
+                cursor: 'pointer',
+              },
+            }}
+            onClick={() => handleNavigate('/admin/projects')}
+          >
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <ProjectsIcon sx={{ fontSize: 40, color: '#1b75bc', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {stats.projectCount}
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
                 Total Saved Projects
               </Typography>
-              <Typography variant="h4">{stats.projectCount}</Typography>
+              <Link
+                component="button"
+                underline="hover"
+                sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNavigate('/admin/projects');
+                }}
+              >
+                View Details
+              </Link>
             </CardContent>
           </Card>
         </Grid>
