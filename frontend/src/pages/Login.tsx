@@ -17,19 +17,47 @@ interface JwtPayload {
 const Login: React.FC = () => {
   const { setUser } = useUser();
   const navigate = useNavigate();
-  const [email, setEmail] = useState(''); // Changed from username to email
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [openForgotPasswordDialog, setOpenForgotPasswordDialog] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validateEmail = (email: string): string | undefined => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) return 'Email is required';
+    if (!emailRegex.test(email)) return 'Invalid email format';
+    return undefined;
+  };
+
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return 'Password is required';
+    return undefined;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setRemainingAttempts(null);
+    setFormErrors({});
+
+    // Validate form
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    if (emailError || passwordError) {
+      setFormErrors({
+        email: emailError,
+        password: passwordError,
+      });
+      return;
+    }
+
     try {
-      const response = await api.post('/api/auth/login', { email, password }); // Changed from username to email
+      const response = await api.post('/api/auth/login', { email, password });
       const token = response.data.token;
       const decoded: JwtPayload = jwtDecode(token);
       setUser({
@@ -45,7 +73,22 @@ const Login: React.FC = () => {
         navigate('/calculator');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+      const remaining = err.response?.headers['ratelimit-remaining'];
+      if (remaining !== undefined) {
+        const remainingAttempts = parseInt(remaining, 10);
+        setRemainingAttempts(remainingAttempts);
+      }
+
+      if (err.response?.status === 429) {
+        setError('Too many login attempts. Please try again after 15 minutes.');
+      } else {
+        const baseError = err.response?.data?.message || 'Login failed';
+        if (remaining !== undefined && remaining > 0) {
+          setError(`${baseError}. You have ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before a 15-minute lockout.`);
+        } else {
+          setError(baseError);
+        }
+      }
     }
   };
 
@@ -66,12 +109,23 @@ const Login: React.FC = () => {
     e.preventDefault();
     setForgotError(null);
     setSuccess(null);
+
+    const emailError = validateEmail(forgotEmail);
+    if (emailError) {
+      setForgotError(emailError);
+      return;
+    }
+
     try {
       const response = await api.post('/api/auth/forgot-password', { email: forgotEmail });
       setSuccess(response.data.message);
       setForgotEmail('');
     } catch (err: any) {
-      setForgotError(err.response?.data?.message || 'Failed to send password reset email');
+      if (err.response?.status === 429) {
+        setForgotError('Too many password reset attempts. Please try again after 15 minutes.');
+      } else {
+        setForgotError(err.response?.data?.message || 'Failed to send password reset email');
+      }
     }
   };
 
@@ -101,22 +155,32 @@ const Login: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{error}</Alert>}
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
           <TextField
-            label="Email" // Changed from Username to Email
+            label="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setFormErrors((prev) => ({ ...prev, email: undefined }));
+            }}
             fullWidth
             margin="normal"
             required
-            type="email" // Added type="email" for better validation
+            type="email"
+            error={!!formErrors.email}
+            helperText={formErrors.email}
           />
           <TextField
             label="Password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setFormErrors((prev) => ({ ...prev, password: undefined }));
+            }}
             fullWidth
             margin="normal"
             required
+            error={!!formErrors.password}
+            helperText={formErrors.password}
           />
           <Button
             type="submit"
@@ -160,11 +224,16 @@ const Login: React.FC = () => {
               <TextField
                 label="Email"
                 value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
+                onChange={(e) => {
+                  setForgotEmail(e.target.value);
+                  setForgotError(null);
+                }}
                 fullWidth
                 margin="normal"
                 required
                 type="email"
+                error={!!forgotError && forgotError.includes('email')}
+                helperText={forgotError && forgotError.includes('email') ? forgotError : undefined}
               />
             </Box>
           </DialogContent>

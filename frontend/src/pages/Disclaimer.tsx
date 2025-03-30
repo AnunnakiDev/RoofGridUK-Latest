@@ -58,7 +58,7 @@ const Disclaimer: React.FC = () => (
           6. Contact Us
         </Typography>
         <Typography paragraph sx={{ color: 'text.secondary' }}>
-          If you have any questions about this Disclaimer, please contact us at privacy@roofgriduk.com.
+          If you have any questions about this Disclaimer, please contact us at support@roofgrid.uk
         </Typography>
       </Container>
     </Box>

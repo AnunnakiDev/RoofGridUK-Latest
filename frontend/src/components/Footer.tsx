@@ -9,9 +9,10 @@ const Footer: React.FC = () => {
     <Box
       sx={{
         bgcolor: '#f5f5f5',
-        py: 3,
+        pt: 4, // Top padding (32px)
+        pb: 6, // Bottom padding increased (48px) to lift content
         textAlign: 'center',
-        position: 'fixed', // Changed to fixed
+        position: 'fixed',
         bottom: 0,
         width: '100%',
         zIndex: 1100,
@@ -48,7 +49,11 @@ const Footer: React.FC = () => {
           Contact
         </Link>
       </Box>
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mt: 2 }} // Added margin-top (16px) to lift up slightly
+      >
         © {new Date().getFullYear()} RoofGrid UK. All rights reserved.
       </Typography>
     </Box>

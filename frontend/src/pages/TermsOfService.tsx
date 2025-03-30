@@ -67,10 +67,10 @@ const TermsOfService: React.FC = () => (
               <strong>Non-Refundable Situations:</strong> Refunds will not be provided if your account is terminated due to a violation of these Terms (e.g., misuse of the App, non-payment of subscription fees).
             </li>
             <li>
-              <strong>How to Request a Refund:</strong> To request a refund, please contact us at privacy@roofgriduk.com within the 14-day Cooling-Off Period, providing your account details and subscription purchase date. We will process your refund within 14 days of receiving your request, using the original payment method.
+              <strong>How to Request a Refund:</strong> To request a refund, please contact us at support@roofgrid.uk within the 14-day Cooling-Off Period, providing your account details and subscription purchase date. We will process your refund within 14 days of receiving your request, using the original payment method.
             </li>
           </ul>
-          If you have any questions about our Refund Policy, please contact us at privacy@roofgriduk.com.
+          If you have any questions about our Refund Policy, please contact us at support@roofgrid.uk.
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 4, mb: 2, color: '#1b75bc' }}>
           4. Intellectual Property
@@ -112,7 +112,7 @@ const TermsOfService: React.FC = () => (
           10. Contact Us
         </Typography>
         <Typography paragraph sx={{ color: 'text.secondary' }}>
-          If you have any questions about these Terms of Service, please contact us at privacy@roofgriduk.com.
+          If you have any questions about these Terms of Service, please contact us at support@roofgrid.uk.
         </Typography>
       </Container>
     </Box>

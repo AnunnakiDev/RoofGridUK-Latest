@@ -18,9 +18,11 @@ import UserManagement from './pages/admin/UserManagement';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Disclaimer from './pages/Disclaimer';
 import TermsOfService from './pages/TermsOfService';
-import AppBenefits from './pages/AppBenefits'; // New import
-import HowToUse from './pages/HowToUse';       // New import
-import ProTips from './pages/ProTips';         // New import
+import AppBenefits from './pages/AppBenefits';
+import HowToUse from './pages/HowToUse';
+import ProTips from './pages/ProTips';
+import FAQ from './pages/FAQ';
+import Contact from './pages/Contact'; // New import
 
 const App: React.FC = () => {
   return (
@@ -38,9 +40,11 @@ const App: React.FC = () => {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/disclaimer" element={<Disclaimer />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/app-benefits" element={<AppBenefits />} /> {/* New route */}
-            <Route path="/how-to-use" element={<HowToUse />} />      {/* New route */}
-            <Route path="/pro-tips" element={<ProTips />} />         {/* New route */}
+            <Route path="/app-benefits" element={<AppBenefits />} />
+            <Route path="/how-to-use" element={<HowToUse />} />
+            <Route path="/pro-tips" element={<ProTips />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/contact" element={<Contact />} /> {/* New route */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="profile" element={<AdminDashboard />} />
               <Route path="projects" element={<AdminSavedProjects />} />

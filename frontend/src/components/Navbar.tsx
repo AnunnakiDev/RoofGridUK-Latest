@@ -31,6 +31,7 @@ const Navbar: React.FC = () => {
     { label: 'App Benefits', path: '/app-benefits' }, // Fixed path
     { label: 'Pro Tips', path: '/pro-tips' },         // Fixed path
     { label: 'Resources', path: '/resources' },
+    { label: 'FAQ', path: '/FAQ' },
   ];
 
   // Add Admin Dashboard link for admin users

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Container, Typography } from '@mui/material';
+import { Box, Container, Typography, Button, Grid, Fade } from '@mui/material';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AccountIcon from '@mui/icons-material/AccountCircle';
@@ -9,254 +9,160 @@ import DimensionsIcon from '@mui/icons-material/Straighten';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ResultsIcon from '@mui/icons-material/BarChart';
 import SaveIcon from '@mui/icons-material/Save';
-import MoreIcon from '@mui/icons-material/MoreHoriz';
+
+const steps = [
+  {
+    icon: <AccountIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Account" />,
+    title: '1. Create an Account',
+    description: 'Sign up to save your projects and unlock Pro features.',
+    image: '/images/how-to-use/create-account.png',
+  },
+  {
+    icon: <CalcIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Calculator" />,
+    title: '2. Access the Calculator',
+    description: 'Navigate to the calculator to start a new roofing project.',
+    image: '/images/how-to-use/access-calculator.png',
+  },
+  {
+    icon: <TileIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Tiles" />,
+    title: '3. Choose Your Tile',
+    description: 'Select from our library or input custom tile dimensions.',
+    image: '/images/how-to-use/choose-tile.png',
+  },
+  {
+    icon: <DimensionsIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Dimensions" />,
+    title: '4. Enter Dimensions',
+    description: 'Input your roof measurements for accurate calculations.',
+    image: '/images/how-to-use/enter-dimensions.png',
+  },
+  {
+    icon: <SettingsIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Settings" />,
+    title: '5. Configure Settings',
+    description: 'Adjust ridge, verge, and other settings as needed.',
+    image: '/images/how-to-use/configure-settings.png',
+  },
+  {
+    icon: <ResultsIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Results" />,
+    title: '6. View Results',
+    description: 'Review tile counts, battens, and more in detailed outputs.',
+    image: '/images/how-to-use/view-results.png',
+  },
+  {
+    icon: <SaveIcon sx={{ fontSize: 40, color: '#1b75bc' }} aria-label="Save" />,
+    title: '7. Save Your Project',
+    description: 'Store your work for later use with a Pro account.',
+    image: '/images/how-to-use/save-project.png',
+  },
+];
 
 const HowToUse: React.FC = () => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       <Navbar />
-      <Container
-        maxWidth="lg"
+      <Box
         sx={{
           flexGrow: 1,
-          py: { xs: 2, md: 4 },
-          pt: { xs: '64px', md: '80px' },
-          pb: { xs: '160px', md: '180px' },
+          pt: { xs: 8, md: 10 }, // Top padding for Navbar clearance
+          pb: { xs: 12, md: 16 }, // Bottom padding for Footer clearance
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
         }}
       >
-        <Typography
-          variant="h2"
-          align="center"
-          gutterBottom
-          sx={{ color: '#1b75bc', fontWeight: 'bold', mb: 4 }}
-        >
-          How to Use RoofGrid UK
-        </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Follow these simple steps to get the most out of the RoofGrid UK app:
-        </Typography>
-
+        {/* Hero Section - Full Width */}
         <Box
           sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1508780709619-79562169bc64)',
-            backgroundAttachment: 'fixed',
+            width: '100%',
+            height: { xs: '300px', md: '400px' },
+            backgroundImage: 'url(/images/uk-pitched-roof.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
             position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            '&:before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0, 0, 0, 0.4)',
+            },
           }}
         >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <AccountIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 1: Create an Account (Optional)
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - While you can use the basic features without an account, creating one allows you to save your projects and access Pro features.<br />
-            - From the navigation bar, click "Sign Up" and fill in your details (e.g., email, password) to register.<br />
-            - After signing up, log in using the "Login" link.
+          <Typography
+            variant="h2"
+            sx={{
+              color: 'white',
+              fontSize: { xs: 28, md: 36 },
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+              zIndex: 1,
+              textAlign: 'center',
+            }}
+          >
+            How To Use RoofGrid UK
           </Typography>
+          <Button
+            variant="outlined"
+            href="/calculator"
+            sx={{ mt: 2, color: 'white', borderColor: 'white', zIndex: 1 }}
+          >
+            Start Calculating
+          </Button>
         </Box>
 
-        <Box
+        {/* Steps Section - More Width Padding on Small Screens */}
+        <Container
+          maxWidth="lg"
           sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1517430816045-df4b7de11d1d)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
+            py: 6,
+            px: { xs: 4, md: 0 }, // Added horizontal padding on smaller screens
           }}
         >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <CalcIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 2: Access the Calculator
-            </Typography>
+          {steps.map((step, index) => (
+            <Fade in timeout={500} key={step.title}>
+              <Grid
+                container
+                spacing={6}
+                sx={{ mb: 6, flexDirection: { xs: 'column', md: index % 2 === 0 ? 'row' : 'row-reverse' } }}
+              >
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {step.icon}
+                    <Typography variant="h5" sx={{ color: '#1b75bc' }}>
+                      {step.title}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      {step.description}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      loading="lazy"
+                      style={{ maxWidth: '100%', height: 'auto' }}
+                    />
+                  </Box>
+                </Grid>
+              </Grid>
+            </Fade>
+          ))}
+          <Box sx={{ mt: 6, textAlign: 'center' }}>
+            <Button variant="contained" size="large" href="/calculator" sx={{ bgcolor: '#1b75bc' }}>
+              Start Calculating Now
+            </Button>
           </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - From the home page or navigation bar, click "Calculator" to start a new roofing calculation.<br />
-            - You’ll see a stepper with four stages: "Choose Tile" (or "Tile Data" for free users), "Roof Dimensions", "Settings", and "Results".
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1504307651254-35680f356dfd)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <TileIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 3: Choose Tile / Input Tile Data
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - <strong>For Pro Users:</strong><br />
-              - Use the "Select Tile" dropdown to choose from the tile library or your saved custom tiles.<br />
-              - Alternatively, expand the "Input Custom Tile" accordion and enter details like "Tile Name", "Material Type" (e.g., Slate, Tile), "Tile Length (mm)", and "Tile Width (mm)".<br />
-              - Optionally, set "Min Gauge", "Max Gauge", "Min Spacing", and "Max Spacing".<br />
-              - Click "Save Custom Tile" to store it for future use.<br />
-            - <strong>For Free Users:</strong><br />
-              - Expand the "Tile Data" accordion and manually input the tile details as above (no saving option).<br />
-            - Click "Next" to proceed.
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1508775707796-c3f80d7fed46)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <DimensionsIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 4: Enter Roof Dimensions
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - <strong>Vertical Dimensions:</strong><br />
-              - Expand the "Vertical" accordion and input "Rafter Height 1 (mm)". Add more rafters with "Add Another Rafter Height" if needed.<br />
-              - For Pro users, optionally name each rafter (e.g., "Front Slope").<br />
-              - Enter the "Gutter Overhang (mm)" (default is 50mm).<br />
-            - <strong>Horizontal Dimensions:</strong><br />
-              - Expand the "Horizontal" accordion and input "Width 1 (mm)". Add more widths with "Add Another Width" if necessary.<br />
-              - For Pro users, optionally name each width (e.g., "Main Section").<br />
-            - Click "Next" to continue.
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1519389950473-47ba0277781c)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <SettingsIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 5: Configure Settings
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - Choose "Ridge Type" (e.g., "Dry Ridge" or "Wet Ridge") from the dropdown.<br />
-            - Select "Left Verge Type" and "Right Verge Type" (e.g., "Wet", "Dry", or "Abutment").<br />
-            - Set "Use LH Tile" to "Yes" or "No" if applicable (disabled for abutments).<br />
-            - Click "Next" to move to the results step.
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1556740738-b6a63e27c4df)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <ResultsIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 6: Calculate and View Results
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - Click "Calculate Roof" to process your inputs.<br />
-            - Review the results in expandable sections: "Tile Data", "Settings", "Vertical Results", "Horizontal Results", and "Total Results".<br />
-            - Check details like batten gauge, total tiles, and half tiles required.
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1454165804606-c3d57bc86b40)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <SaveIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Step 7: Save Your Project (Pro Users)
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - Enter a "Project Name" in the text field.<br />
-            - Click "Save Results" to store your calculation for later use.<br />
-            - Access saved projects from your profile page.
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1508780709619-79562169bc64)',
-            backgroundAttachment: 'fixed',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            p: 3,
-            borderRadius: 2,
-            mb: 3,
-            position: 'relative',
-            '&:before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0, 0, 0, 0.5)', borderRadius: 2 },
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            <MoreIcon sx={{ color: '#fff', mr: 2, fontSize: 40 }} />
-            <Typography variant="h4" sx={{ color: '#fff', mb: 2 }}>
-              Additional Features
-            </Typography>
-          </Box>
-          <Typography variant="body1" color="#fff" sx={{ position: 'relative', zIndex: 1 }}>
-            - <strong>Weather Widget:</strong> Check current weather conditions via the widget to plan your work.<br />
-            - <strong>Profile Management:</strong> Update your details and manage saved projects/custom tiles from the "Profile" page (accessible via the navigation bar).
-          </Typography>
-        </Box>
-
-        <Typography variant="body1" color="text.secondary" align="center">
-          For more detailed instructions, refer to our FAQ or contact support.
-        </Typography>
-      </Container>
+        </Container>
+      </Box>
       <Footer />
     </Box>
   );

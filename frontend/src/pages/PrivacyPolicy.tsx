@@ -119,7 +119,7 @@ const PrivacyPolicy: React.FC = () => (
             <li>Withdraw consent for geolocation data at any time via your browser settings.</li>
             <li>Request a copy of your data or restrict its processing.</li>
           </ul>
-          To exercise these rights, please contact us at privacy@roofgriduk.com.
+          To exercise these rights, please contact us at support@roofgrid.uk
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 4, mb: 2, color: '#1b75bc' }}>
           8. Security
@@ -131,7 +131,7 @@ const PrivacyPolicy: React.FC = () => (
           9. Contact Us
         </Typography>
         <Typography paragraph sx={{ color: 'text.secondary' }}>
-          If you have any questions about this Privacy Policy, please contact us at privacy@roofgriduk.com.
+          If you have any questions about this Privacy Policy, please contact us at support@roofgrid.uk
         </Typography>
       </Container>
     </Box>
