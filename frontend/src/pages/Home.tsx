@@ -1,6 +1,5 @@
-// frontend/src/pages/Home.tsx
 import React from 'react';
-import { Box, Container, Typography, Button, Grid, Table, TableBody, TableCell, TableHead, TableRow, Fade } from '@mui/material';
+import { Box, Container, Typography, Button, Grid, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { useUser } from '../context/UserContext';
@@ -40,54 +39,51 @@ const comparisonData = [
   { feature: 'No Ads', free: 'No', pro: 'Yes', freeDesc: 'Ads included', proDesc: 'Ad-free experience' },
 ];
 
-const heroStyles = {
-  width: '100%',
-  height: { xs: '300px', md: '400px' },
-  backgroundImage: 'url(/images/uk-pitched-roof.jpg)',
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  position: 'relative',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'center',
-  mb: 0, // Further reduced space below hero (was 1)
-  '&:before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    bgcolor: 'rgba(0, 0, 0, 0.4)',
-  },
-};
-
-const titleStyles = {
-  color: 'white',
-  fontSize: { xs: 28, md: 36 },
-  fontWeight: 'bold',
-  textTransform: 'uppercase',
-  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
-  zIndex: 1,
-  textAlign: 'center',
-  maxWidth: '90%',
-  mt: 8, // Added padding to the top to balance vertical centering
-};
-
-const subtitleStyles = {
-  color: 'white',
-  mt: 1,
-  fontSize: { xs: 16, md: 20 },
-  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-  zIndex: 1,
-  textAlign: 'center',
-  maxWidth: '90%',
-};
-
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+
+  const heroStyles = {
+    width: '100%',
+    height: { xs: '300px', md: '400px' },
+    backgroundImage: 'url(/images/uk-pitched-roof.jpg)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      bgcolor: 'rgba(0, 0, 0, 0.4)',
+    },
+  };
+
+  const titleStyles = {
+    color: 'white',
+    fontSize: { xs: 28, md: 36 },
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
+    textAlign: 'center',
+    mb: 2, // Added padding below title
+  };
+
+  const subtitleStyles = {
+    color: 'white',
+    mt: 1,
+    fontSize: { xs: 16, md: 20 },
+    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
+    textAlign: 'center',
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
@@ -99,26 +95,12 @@ const Home: React.FC = () => {
         <Typography variant="subtitle1" sx={subtitleStyles}>
           Calculate exact batten and tile placement within minimal cutting
         </Typography>
-        <Box sx={{ 
-          mt: 1, // Reduced margin-top (was 3) to balance vertical centering
-          mb: 1, // Added small margin-bottom to avoid cutting off the buttons
-          display: 'flex', 
-          gap: 2, 
-          flexWrap: 'wrap', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          zIndex: 1,
-        }}>
+        <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', zIndex: 1 }}>
           <Button
             variant="contained"
             size="large"
             onClick={() => navigate('/calculator')}
-            sx={{ 
-              bgcolor: '#1b75bc', 
-              '&:hover': { bgcolor: '#145ea8' }, 
-              minWidth: { xs: 160, md: 200 },
-              py: 1,
-            }}
+            sx={{ bgcolor: '#1b75bc', '&:hover': { bgcolor: '#145ea8' }, minWidth: { xs: 160, md: 200 } }}
           >
             Try the Calculator
           </Button>
@@ -126,30 +108,25 @@ const Home: React.FC = () => {
             variant="outlined"
             size="large"
             onClick={() => navigate('/register')}
-            sx={{ 
-              color: 'white', 
-              borderColor: 'white', 
-              '&:hover': { borderColor: '#f5f5f5', color: '#f5f5f5' }, 
-              minWidth: { xs: 160, md: 200 },
-              py: 1,
-            }}
+            sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: '#f5f5f5', color: '#f5f5f5' }, minWidth: { xs: 160, md: 200 } }}
           >
             Sign Up Free
           </Button>
         </Box>
       </Box>
 
-      {/* Content wrapped in PageLayout */}
+      {/* Content Wrapped in PageLayout */}
       <PageLayout>
         {/* Features Section */}
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', textAlign: 'center', mb: 4 }}>
-          Why Use RoofGrid UK?
-        </Typography>
-        {features.map((feature, index) => (
-          <Fade in timeout={500} key={feature.title}>
+        <Container maxWidth="lg" disableGutters>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', textAlign: 'center', mb: 6 }}>
+            Why Use RoofGrid UK?
+          </Typography>
+          {features.map((feature, index) => (
             <Grid
               container
               spacing={6}
+              key={feature.title}
               sx={{ mb: 6, flexDirection: { xs: 'column', md: index % 2 === 0 ? 'row' : 'row-reverse' } }}
             >
               <Grid item xs={12} md={6}>
@@ -173,52 +150,54 @@ const Home: React.FC = () => {
                 </Box>
               </Grid>
             </Grid>
-          </Fade>
-        ))}
+          ))}
+        </Container>
 
         {/* Free vs Pro Comparison Section */}
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', textAlign: 'center', mb: 4 }}>
-          Free vs. Pro
-        </Typography>
-        <Box sx={{ border: '1px solid #ddd', borderRadius: 2, p: 3, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' }}>
-          <Table sx={{ borderCollapse: 'collapse' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid #ddd' }}>Feature</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Free</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#1b75bc', color: 'white', borderBottom: '2px solid #ddd', textAlign: 'center' }}>
-                  Pro
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {comparisonData.map((row) => (
-                <TableRow key={row.feature}>
-                  <TableCell sx={{ borderBottom: '1px solid #ddd' }}>
-                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                      {row.feature}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid #ddd', textAlign: 'center' }}>
-                    <Typography variant="body2">{row.free}</Typography>
-                    <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                      {row.freeDesc}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid #ddd', bgcolor: '#1b75bc20', textAlign: 'center' }}>
-                    <Typography variant="body2">{row.pro}</Typography>
-                    <Typography variant="caption" sx={{ fontStyle: 'italic', color: '#1b75bc' }}>
-                      {row.proDesc}
-                    </Typography>
+        <Container maxWidth="md" disableGutters sx={{ mt: 6 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', textAlign: 'center', mb: 4 }}>
+            Free vs. Pro
+          </Typography>
+          <Box sx={{ border: '1px solid #ddd', borderRadius: 2, p: 3, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' }}>
+            <Table sx={{ borderCollapse: 'collapse' }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid #ddd' }}>Feature</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Free</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: '#1b75bc', color: 'white', borderBottom: '2px solid #ddd', textAlign: 'center' }}>
+                    Pro
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
+              </TableHead>
+              <TableBody>
+                {comparisonData.map((row) => (
+                  <TableRow key={row.feature}>
+                    <TableCell sx={{ borderBottom: '1px solid #ddd' }}>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                        {row.feature}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                      <Typography variant="body2">{row.free}</Typography>
+                      <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+                        {row.freeDesc}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ borderBottom: '1px solid #ddd', bgcolor: '#1b75bc20', textAlign: 'center' }}>
+                      <Typography variant="body2">{row.pro}</Typography>
+                      <Typography variant="caption" sx={{ fontStyle: 'italic', color: '#1b75bc' }}>
+                        {row.proDesc}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Container>
 
         {/* CTA Section */}
-        <Box sx={{ mt: 6, textAlign: 'center' }}>
+        <Container maxWidth="lg" disableGutters sx={{ mt: 6, textAlign: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1b75bc', mb: 3 }}>
             Ready to Roof Smarter?
           </Typography>
@@ -230,7 +209,7 @@ const Home: React.FC = () => {
           >
             {user.id ? 'Start Calculating' : 'Sign Up Now'}
           </Button>
-        </Box>
+        </Container>
       </PageLayout>
     </Box>
   );

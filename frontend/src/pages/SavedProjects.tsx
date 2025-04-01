@@ -1,537 +1,243 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
+import api from '../services/api';
 import {
   Box,
   Typography,
-  Paper,
+  TextField,
   IconButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Alert,
-  Tooltip,
-  CircularProgress,
   Table,
   TableBody,
-  TableRow,
   TableCell,
-  Grid,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Pagination,
+  Checkbox,
+  Button,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import api from '../services/api';
-import { useUser } from '../context/UserContext';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import DeleteIcon from '@mui/icons-material/Delete';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 
 interface Project {
   id: number;
   projectName: string;
   createdAt: string;
-  rafterHeights: number[];
-  widths: number[];
-  settings: {
-    useDryRidge: 'YES' | 'NO';
-    leftVergeType: 'Wet' | 'Dry' | 'Abutment';
-    rightVergeType: 'Wet' | 'Dry' | 'Abutment';
-    useLHTile: 'YES' | 'NO';
-    lhTileWidth: number;
-    gutterOverhang: number;
-    materialType: string;
-    slateTileHeight: number;
-    tileCoverWidth: number;
-    minGauge: number;
-    maxGauge: number;
-    minSpacing: number;
-    maxSpacing: number;
-    crossBonded: 'YES' | 'NO';
-  };
-  verticalResults: any;
-  horizontalResults: any;
-  totalResults: {
-    totalCourses: number;
-    totalTiles: number;
-    halfTiles: number;
-  } | null;
+  updatedAt: string;
 }
 
 const SavedProjects: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<number | false>(false);
-  const [tileDataExpanded, setTileDataExpanded] = useState<number | false>(false);
-  const [settingsExpanded, setSettingsExpanded] = useState<number | false>(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [selected, setSelected] = useState<number[]>([]);
+  const rowsPerPage = 10;
 
-  // Fetch saved projects on mount
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!user.id) {
-        navigate('/login');
-        return;
-      }
-
       try {
-        setLoading(true);
-        const response = await api.get('/api/projects');
-        setProjects(response.data);
-        setError(null);
-      } catch (err) {
-        setError('Failed to fetch saved projects. Please try again.');
-      } finally {
-        setLoading(false);
+        const response = await api.get('/api/projects', {
+          params: { page, search },
+        });
+        const fetchedProjects = response.data.projects || [];
+        setProjects(fetchedProjects);
+        setTotalPages(Math.ceil((response.data.total || 0) / rowsPerPage));
+
+        // Fetch recently updated projects (last 5 by updatedAt)
+        const recentResponse = await api.get('/api/projects', {
+          params: { page: 1, limit: 5, sort: 'updatedAt', order: 'DESC' },
+        });
+        setRecentProjects(recentResponse.data.projects || []);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch projects');
       }
     };
-
     fetchProjects();
-  }, [user.id, navigate]);
 
-  // Handle project deletion
+    // Load favorites from localStorage
+    const storedFavorites = localStorage.getItem('favoriteProjects');
+    if (storedFavorites) {
+      setFavorites(JSON.parse(storedFavorites));
+    }
+  }, [page, search]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page on search
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  const handleFavorite = (projectId: number) => {
+    const newFavorites = favorites.includes(projectId)
+      ? favorites.filter((id) => id !== projectId)
+      : [...favorites, projectId];
+    setFavorites(newFavorites);
+    localStorage.setItem('favoriteProjects', JSON.stringify(newFavorites));
+  };
+
+  const handleSelect = (projectId: number) => {
+    const newSelected = selected.includes(projectId)
+      ? selected.filter((id) => id !== projectId)
+      : [...selected, projectId];
+    setSelected(newSelected);
+  };
+
   const handleDelete = async (projectId: number) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      try {
-        await api.delete(`/api/projects/${projectId}`);
-        setProjects(projects.filter((project) => project.id !== projectId));
-        setError(null);
-      } catch (err) {
-        setError('Failed to delete project. Please try again.');
-      }
+    try {
+      await api.delete(`/api/projects/${projectId}`);
+      setProjects(projects.filter((project) => project.id !== projectId));
+      setRecentProjects(recentProjects.filter((project) => project.id !== projectId));
+      setFavorites(favorites.filter((id) => id !== projectId));
+      setSelected(selected.filter((id) => id !== projectId));
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete project');
     }
   };
 
-  // Handle project edit (navigate to Calculator with pre-filled data)
-  const handleEdit = (project: Project) => {
-    navigate('/calculator', { state: { project } });
-  };
-
-  // Handle project accordion expand/collapse
-  const handleExpand = (projectId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setExpanded(isExpanded ? projectId : false);
-    // Open Tile Data and Settings accordions by default when the project accordion is expanded
-    if (isExpanded) {
-      setTileDataExpanded(projectId);
-      setSettingsExpanded(projectId);
-    } else {
-      setTileDataExpanded(false);
-      setSettingsExpanded(false);
+  const handleBulkDelete = async () => {
+    try {
+      await api.post('/api/projects/bulk-delete', { projectIds: selected });
+      setProjects(projects.filter((project) => !selected.includes(project.id)));
+      setRecentProjects(recentProjects.filter((project) => !selected.includes(project.id)));
+      setFavorites(favorites.filter((id) => !selected.includes(id)));
+      setSelected([]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to bulk delete projects');
     }
   };
 
-  // Handle Tile Data accordion expand/collapse
-  const handleTileDataExpand = (projectId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setTileDataExpanded(isExpanded ? projectId : false);
+  const handleEdit = (projectId: number) => {
+    navigate(`/project/edit/${projectId}`);
   };
 
-  // Handle Settings accordion expand/collapse
-  const handleSettingsExpand = (projectId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
-    setSettingsExpanded(isExpanded ? projectId : false);
-  };
-
-  if (loading) {
+  if (error) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress />
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Navbar />
-      <Box
-        sx={{
-          flexGrow: 1,
-          maxWidth: { xs: '100%', sm: 750, md: 900 },
-          mx: 'auto',
-          p: { xs: 1, sm: 2, md: 3 },
-          pt: { xs: '64px', md: '80px' },
-          pb: { xs: '160px', md: '180px' },
-          minHeight: 'calc(100vh - 128px)',
-          overflow: 'auto',
-          px: { xs: 1, sm: 2 },
-        }}
-      >
-        <Typography variant="h4" gutterBottom align="center" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-          Saved Projects
-        </Typography>
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-        {projects.length === 0 ? (
-          <Typography variant="body1" align="center" sx={{ color: 'text.secondary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
-            No saved projects found. Start by saving a project from the Calculator.
-          </Typography>
-        ) : (
-          <Paper sx={{ borderRadius: 2, boxShadow: 2 }}>
-            {projects.map((project) => (
-              <Accordion key={project.id} expanded={expanded === project.id} onChange={handleExpand(project.id)}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' }, fontWeight: 'bold' }}>
-                        {project.projectName}
-                      </Typography>
-                      <Typography sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' }, color: 'text.secondary' }}>
-                        {new Date(project.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Tooltip title="Edit Project">
-                        <IconButton onClick={() => handleEdit(project)} color="primary">
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Project">
-                        <IconButton onClick={() => handleDelete(project.id)} color="error">
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {/* Tile Data and Settings Side by Side */}
-                  <Grid container spacing={2} sx={{ mb: 2 }}>
-                    <Grid item xs={12} sm={6}>
-                      <Accordion expanded={tileDataExpanded === project.id} onChange={handleTileDataExpand(project.id)}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="h6" sx={{ fontWeight: 'medium', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                            Tile Data
-                          </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box sx={{ overflowX: 'auto' }}>
-                            <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
-                              <TableBody>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Material Type</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.materialType}
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Length</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.slateTileHeight} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Tile Width</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.tileCoverWidth} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Gauge</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.minGauge} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Gauge</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.maxGauge} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Min Spacing</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.minSpacing} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Max Spacing</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.maxSpacing} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Cross-Bonded</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.crossBonded}
-                                  </TableCell>
-                                </TableRow>
-                              </TableBody>
-                            </Table>
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Accordion expanded={settingsExpanded === project.id} onChange={handleSettingsExpand(project.id)}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="h6" sx={{ fontWeight: 'medium', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                            Settings
-                          </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box sx={{ overflowX: 'auto' }}>
-                            <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
-                              <TableBody>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Left Verge</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.leftVergeType}
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Right Verge</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.rightVergeType}
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Use LH Tile</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.useLHTile}
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Gutter Overhang</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.gutterOverhang} mm
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Use Dry Ridge</TableCell>
-                                  <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                    {project.settings.useDryRidge}
-                                  </TableCell>
-                                </TableRow>
-                              </TableBody>
-                            </Table>
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                    </Grid>
-                  </Grid>
-                  {/* Vertical Results */}
-                  {project.rafterHeights.some((h: number) => h > 0) && project.verticalResults && (
-                    <Accordion sx={{ mb: 1 }}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
-                          Vertical Results
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        {project.verticalResults.solution.rafterResults.map((r: any, index: number) => (
-                          project.rafterHeights[index] > 0 && (
-                            <Accordion key={index} sx={{ mb: 1 }}>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
-                                  Rafter {index + 1}
-                                </Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box sx={{ overflowX: 'auto' }}>
-                                  <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
-                                    <TableBody>
-                                      {project.settings.useDryRidge === 'YES' && (
-                                        <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Under Eave Batten</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {project.verticalResults.underEaveBatten} mm
-                                          </TableCell>
-                                        </TableRow>
-                                      )}
-                                      {['Slate', 'Fibre Cement Slate', 'Plain Tile'].includes(project.settings.materialType) && (
-                                        <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Eave Batten</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {project.verticalResults.eaveBatten} mm
-                                          </TableCell>
-                                        </TableRow>
-                                      )}
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>1st Batten</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {project.verticalResults.firstBatten} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      {project.verticalResults.solution.type === 'full' && (
-                                        <>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Batten Gauge</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.battenGauge} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {project.verticalResults.firstBatten + (project.verticalResults.solution.n_spaces - 1) * (r.battenGauge || 0) + r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                        </>
-                                      )}
-                                      {project.verticalResults.solution.type === 'split' && (
-                                        <>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Gauge 1</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.gauge1} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Gauge 2</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.gauge2} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {project.verticalResults.firstBatten + (project.verticalResults.solution.n1! * (r.gauge1 || 0) + project.verticalResults.solution.n2! * (r.gauge2 || 0)) + r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                        </>
-                                      )}
-                                      {project.verticalResults.solution.type === 'cut' && (
-                                        <>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Cut Course Gauge</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.cutCourseGauge} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Full Courses Batten Gauge</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.fullCourses} @ {project.settings.maxGauge} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Ridge Offset</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                          <TableRow>
-                                            <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total</TableCell>
-                                            <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                              {project.verticalResults.firstBatten + (r.cutCourseGauge || 0) + (r.fullCourses || 0) * project.settings.maxGauge + r.effectiveRidgeOffset} mm
-                                            </TableCell>
-                                          </TableRow>
-                                        </>
-                                      )}
-                                    </TableBody>
-                                  </Table>
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                          )
-                        ))}
-                      </AccordionDetails>
-                    </Accordion>
-                  )}
-                  {/* Horizontal Results */}
-                  {project.widths.some((w: number) => w > 0) && project.horizontalResults && (
-                    <Accordion sx={{ mb: 1 }}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '1rem', sm: '1.2rem' } }}>
-                          Horizontal Results
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        {project.horizontalResults.solution.widthResults.map((r: any, index: number) => (
-                          project.widths[index] > 0 && (
-                            <Accordion key={index} sx={{ mb: 1 }}>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}>
-                                  Width {index + 1}
-                                </Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box sx={{ overflowX: 'auto' }}>
-                                  <Table sx={{ minWidth: 500, backgroundColor: 'primary.main', color: 'white' }}>
-                                    <TableBody>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Starting Width</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {project.widths[index]} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Final Width</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {project.widths[index] + r.overhangLeft + r.overhangRight} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Total Tiles Wide</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {project.horizontalResults.tilesWide}
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Left Overhang</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {r.overhangLeft} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Right Overhang</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {r.overhangRight} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>1st Mark</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {r.firstMark} mm
-                                        </TableCell>
-                                      </TableRow>
-                                      {r.secondMark && (
-                                        <TableRow>
-                                          <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>2nd Mark</TableCell>
-                                          <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                            {r.secondMark} mm
-                                          </TableCell>
-                                        </TableRow>
-                                      )}
-                                      <TableRow>
-                                        <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: 'white' }}>Chalk Marks</TableCell>
-                                        <TableCell sx={{ fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold', color: 'white' }}>
-                                          {r.totalSets} @ {r.adjustedMarks} mm
-                                        </TableCell>
-                                      </TableRow>
-                                    </TableBody>
-                                  </Table>
-                                </Box>
-                                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                                  *measure from LH brickwork, Marks In sets of {project.horizontalResults.setSize}
-                                </Typography>
-                              </AccordionDetails>
-                            </Accordion>
-                          )
-                        ))}
-                      </AccordionDetails>
-                    </Accordion>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </Paper>
-        )}
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+        Saved Projects
+      </Typography>
+      <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
+        Saved Projects allows you to view and manage your previously saved projects in the RoofGrid UK system. Use the table below to view details, edit, or delete projects, and mark favorites for quick access.
+      </Typography>
+
+      <TextField
+        label="Search by Project Name"
+        value={search}
+        onChange={handleSearchChange}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          {selected.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleBulkDelete}
+              sx={{ mr: 1 }}
+            >
+              Delete Selected
+            </Button>
+          )}
+        </Box>
+        <Box>
+          <Button sx={{ mx: 1 }}>Columns</Button>
+          <Button sx={{ mx: 1 }}>Filters</Button>
+          <Button sx={{ mx: 1 }}>Density</Button>
+          <Button sx={{ mx: 1 }}>Export</Button>
+        </Box>
       </Box>
-      <Footer />
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <Checkbox
+                  checked={selected.length === projects.length && projects.length > 0}
+                  onChange={() => {
+                    if (selected.length === projects.length) {
+                      setSelected([]);
+                    } else {
+                      setSelected(projects.map((project) => project.id));
+                    }
+                  }}
+                />
+              </TableCell>
+              <TableCell>Actions</TableCell>
+              <TableCell>Project Name</TableCell>
+              <TableCell>Created At</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {projects.map((project) => (
+              <TableRow key={project.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.includes(project.id)}
+                    onChange={() => handleSelect(project.id)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleEdit(project.id)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(project.id)}>
+                    <DeleteIcon sx={{ color: 'red' }} />
+                  </IconButton>
+                  <IconButton onClick={() => handleFavorite(project.id)}>
+                    {favorites.includes(project.id) ? (
+                      <StarIcon sx={{ color: 'gold' }} />
+                    ) : (
+                      <StarBorderIcon />
+                    )}
+                  </IconButton>
+                </TableCell>
+                <TableCell>{project.projectName}</TableCell>
+                <TableCell>{new Date(project.createdAt).toLocaleDateString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={handlePageChange}
+        />
+      </Box>
+      {recentProjects.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Recently Updated Projects
+          </Typography>
+          {recentProjects.map((project) => (
+            <Box key={project.id} sx={{ p: 1, border: '1px solid #e0e0e0', borderRadius: 1, mb: 1 }}>
+              <Typography>{project.projectName}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };

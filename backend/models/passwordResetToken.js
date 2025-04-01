@@ -1,14 +1,13 @@
-const { DataTypes } = require('sequelize');
-
-module.exports = (sequelize) => {
+module.exports = (sequelize, DataTypes) => {
   const PasswordResetToken = sequelize.define('passwordResetToken', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: 'user',
-        key: 'id',
-      },
     },
     token: {
       type: DataTypes.STRING,
@@ -20,8 +19,12 @@ module.exports = (sequelize) => {
     },
   }, {
     tableName: 'passwordResetToken',
-    timestamps: false,
+    timestamps: true,
   });
+
+  PasswordResetToken.associate = (models) => {
+    PasswordResetToken.belongsTo(models.user, { foreignKey: 'userId' });
+  };
 
   return PasswordResetToken;
 };

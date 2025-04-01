@@ -1,33 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
+import api from '../services/api';
 import {
   Box,
   Typography,
-  Button,
+  TextField,
+  IconButton,
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Alert,
-  Container,
+  Paper,
+  Pagination,
+  Checkbox,
+  Button,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { useUser } from '../context/UserContext';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 
 interface CustomTile {
   id: number;
@@ -35,284 +29,241 @@ interface CustomTile {
   type: string;
   length: number;
   width: number;
-  mingauge: number;
-  maxgauge: number;
-  minspacing: number;
-  maxspacing: number;
-  lhTileWidth: number;
-  crossbonded: 'YES' | 'NO';
+  createdAt: string;
+  updatedAt: string;
 }
 
 const CustomTiles: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const [tiles, setTiles] = useState<CustomTile[]>([]);
+  const [recentTiles, setRecentTiles] = useState<CustomTile[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [selectedTile, setSelectedTile] = useState<CustomTile | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [selected, setSelected] = useState<number[]>([]);
+  const rowsPerPage = 10;
 
   useEffect(() => {
-    if (!user.id) {
-      navigate('/login');
-      return;
-    }
-
-    if (user.subscription !== 'pro') {
-      setError('Pro subscription required to manage custom tiles');
-      return;
-    }
-
     const fetchTiles = async () => {
       try {
-        const response = await api.get('/api/users/tiles');
-        setTiles(response.data);
+        const response = await api.get('/api/user-tiles/tiles', {
+          params: { page, search },
+        });
+        const fetchedTiles = response.data.tiles || [];
+        setTiles(fetchedTiles);
+        setTotalPages(Math.ceil((response.data.total || 0) / rowsPerPage));
+
+        // Fetch recently updated tiles (last 5 by updatedAt)
+        const recentResponse = await api.get('/api/user-tiles/tiles', {
+          params: { page: 1, limit: 5, sort: 'updatedAt', order: 'DESC' },
+        });
+        setRecentTiles(recentResponse.data.tiles || []);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch custom tiles');
       }
     };
-
     fetchTiles();
-  }, [user.id, user.subscription, navigate]);
 
-  const handleEdit = (tile: CustomTile) => {
-    setSelectedTile(tile);
-    setOpen(true);
+    // Load favorites from localStorage
+    const storedFavorites = localStorage.getItem('favoriteTiles');
+    if (storedFavorites) {
+      setFavorites(JSON.parse(storedFavorites));
+    }
+  }, [page, search]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page on search
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  const handleFavorite = (tileId: number) => {
+    const newFavorites = favorites.includes(tileId)
+      ? favorites.filter((id) => id !== tileId)
+      : [...favorites, tileId];
+    setFavorites(newFavorites);
+    localStorage.setItem('favoriteTiles', JSON.stringify(newFavorites));
+  };
+
+  const handleSelect = (tileId: number) => {
+    const newSelected = selected.includes(tileId)
+      ? selected.filter((id) => id !== tileId)
+      : [...selected, tileId];
+    setSelected(newSelected);
   };
 
   const handleDelete = async (tileId: number) => {
-    if (window.confirm('Are you sure you want to delete this tile?')) {
-      try {
-        await api.delete(`/api/users/tiles/${tileId}`);
-        setTiles(tiles.filter((tile) => tile.id !== tileId));
-        setSuccess('Tile deleted successfully');
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete tile');
-      }
-    }
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setSelectedTile(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTile) return;
-
     try {
-      const response = await api.put(`/api/users/tiles/${selectedTile.id}`, selectedTile);
-      setTiles(tiles.map((tile) => (tile.id === selectedTile.id ? response.data : tile)));
-      setSuccess('Tile updated successfully');
-      handleClose();
+      await api.delete(`/api/user-tiles/tiles/${tileId}`);
+      setTiles(tiles.filter((tile) => tile.id !== tileId));
+      setRecentTiles(recentTiles.filter((tile) => tile.id !== tileId));
+      setFavorites(favorites.filter((id) => id !== tileId));
+      setSelected(selected.filter((id) => id !== tileId));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update tile');
+      setError(err.response?.data?.message || 'Failed to delete tile');
     }
   };
 
-  const handleChange = (field: keyof CustomTile, value: any) => {
-    if (selectedTile) {
-      setSelectedTile({ ...selectedTile, [field]: value });
+  const handleBulkDelete = async () => {
+    try {
+      await api.post('/api/user-tiles/tiles/bulk-delete', { tileIds: selected });
+      setTiles(tiles.filter((tile) => !selected.includes(tile.id)));
+      setRecentTiles(recentTiles.filter((tile) => !selected.includes(tile.id)));
+      setFavorites(favorites.filter((id) => !selected.includes(id)));
+      setSelected([]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to bulk delete tiles');
     }
   };
 
-  if (user.subscription !== 'pro') {
+  const handleEdit = (tileId: number) => {
+    navigate(`/custom-tiles/edit/${tileId}`);
+  };
+
+  const handleRecentTileClick = (tileId: number) => {
+    navigate(`/custom-tiles/edit/${tileId}`);
+  };
+
+  if (error) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navbar />
-        <Box sx={{ flexGrow: 1, pt: { xs: '64px', md: '80px' }, pb: { xs: '80px', md: '100px' } }}>
-          <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Alert severity="error">{error}</Alert>
-          </Container>
-        </Box>
-        <Footer />
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Navbar />
-      <Box sx={{ flexGrow: 1, pt: { xs: '64px', md: '80px' }, pb: { xs: '80px', md: '100px' } }}>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Typography variant="h4" align="center" sx={{ fontWeight: 'bold', mb: 4, color: '#1b75bc' }}>
-            Manage Custom Tiles
-          </Typography>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-          {tiles.length === 0 ? (
-            <Typography align="center" color="text.secondary">
-              No custom tiles found. Add a new tile in the Calculator.
-            </Typography>
-          ) : (
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Length (mm)</TableCell>
-                    <TableCell>Width (mm)</TableCell>
-                    <TableCell>Min Gauge (mm)</TableCell>
-                    <TableCell>Max Gauge (mm)</TableCell>
-                    <TableCell>Min Spacing (mm)</TableCell>
-                    <TableCell>Max Spacing (mm)</TableCell>
-                    <TableCell>LH Tile Width (mm)</TableCell>
-                    <TableCell>Cross-Bonded</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {tiles.map((tile) => (
-                    <TableRow key={tile.id}>
-                      <TableCell>{tile.name}</TableCell>
-                      <TableCell>{tile.type}</TableCell>
-                      <TableCell>{tile.length}</TableCell>
-                      <TableCell>{tile.width}</TableCell>
-                      <TableCell>{tile.mingauge}</TableCell>
-                      <TableCell>{tile.maxgauge}</TableCell>
-                      <TableCell>{tile.minspacing}</TableCell>
-                      <TableCell>{tile.maxspacing}</TableCell>
-                      <TableCell>{tile.lhTileWidth}</TableCell>
-                      <TableCell>{tile.crossbonded}</TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => handleEdit(tile)} color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handleDelete(tile.id)} color="error">
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
-        </Container>
-      </Box>
-      <Footer />
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+        Custom Tiles
+      </Typography>
+      <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
+        Custom Tiles allows you to view and manage your previously saved tiles in the RoofGrid UK system. Use the table below to view details, edit, or delete tiles, and mark favorites for quick access.
+      </Typography>
 
-      {/* Edit Tile Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Tile</DialogTitle>
-        <DialogContent>
-          {selectedTile && (
-            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-              <TextField
-                label="Name"
-                value={selectedTile.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                fullWidth
-                margin="normal"
-                required
-              />
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Type</InputLabel>
-                <Select
-                  value={selectedTile.type}
-                  onChange={(e) => handleChange('type', e.target.value)}
-                  required
-                >
-                  <MenuItem value="Slate">Slate</MenuItem>
-                  <MenuItem value="Tile">Tile</MenuItem>
-                  <MenuItem value="Fibre Cement Slate">Fibre Cement Slate</MenuItem>
-                  <MenuItem value="Plain Tile">Plain Tile</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Length (mm)"
-                type="number"
-                value={selectedTile.length}
-                onChange={(e) => handleChange('length', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Width (mm)"
-                type="number"
-                value={selectedTile.width}
-                onChange={(e) => handleChange('width', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Min Gauge (mm)"
-                type="number"
-                value={selectedTile.mingauge}
-                onChange={(e) => handleChange('mingauge', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Max Gauge (mm)"
-                type="number"
-                value={selectedTile.maxgauge}
-                onChange={(e) => handleChange('maxgauge', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Min Spacing (mm)"
-                type="number"
-                value={selectedTile.minspacing}
-                onChange={(e) => handleChange('minspacing', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Max Spacing (mm)"
-                type="number"
-                value={selectedTile.maxspacing}
-                onChange={(e) => handleChange('maxspacing', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="LH Tile Width (mm)"
-                type="number"
-                value={selectedTile.lhTileWidth}
-                onChange={(e) => handleChange('lhTileWidth', Number(e.target.value))}
-                fullWidth
-                margin="normal"
-                inputProps={{ min: 0 }}
-              />
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Cross-Bonded</InputLabel>
-                <Select
-                  value={selectedTile.crossbonded}
-                  onChange={(e) => handleChange('crossbonded', e.target.value as 'YES' | 'NO')}
-                  required
-                >
-                  <MenuItem value="YES">Yes</MenuItem>
-                  <MenuItem value="NO">No</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+      <TextField
+        label="Search by Tile Name"
+        value={search}
+        onChange={handleSearchChange}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          {selected.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleBulkDelete}
+              sx={{ mr: 1 }}
+            >
+              Delete Selected
+            </Button>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+        <Box>
+          <Button sx={{ mx: 1 }}>Columns</Button>
+          <Button sx={{ mx: 1 }}>Filters</Button>
+          <Button sx={{ mx: 1 }}>Density</Button>
+          <Button sx={{ mx: 1 }}>Export</Button>
+        </Box>
+      </Box>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <Checkbox
+                  checked={selected.length === tiles.length && tiles.length > 0}
+                  onChange={() => {
+                    if (selected.length === tiles.length) {
+                      setSelected([]);
+                    } else {
+                      setSelected(tiles.map((tile) => tile.id));
+                    }
+                  }}
+                />
+              </TableCell>
+              <TableCell>Actions</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell>Length</TableCell>
+              <TableCell>Width</TableCell>
+              <TableCell>Created At</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {tiles.map((tile) => (
+              <TableRow key={tile.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.includes(tile.id)}
+                    onChange={() => handleSelect(tile.id)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleEdit(tile.id)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(tile.id)}>
+                    <DeleteIcon sx={{ color: 'red' }} />
+                  </IconButton>
+                  <IconButton onClick={() => handleFavorite(tile.id)}>
+                    {favorites.includes(tile.id) ? (
+                      <StarIcon sx={{ color: 'gold' }} />
+                    ) : (
+                      <StarBorderIcon />
+                    )}
+                  </IconButton>
+                </TableCell>
+                <TableCell>{tile.name}</TableCell>
+                <TableCell>{tile.type}</TableCell>
+                <TableCell>{tile.length}</TableCell>
+                <TableCell>{tile.width}</TableCell>
+                <TableCell>{new Date(tile.createdAt).toLocaleDateString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={handlePageChange}
+        />
+      </Box>
+      {recentTiles.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Recently Updated Tiles
+          </Typography>
+          {recentTiles.map((tile) => (
+            <Box
+              key={tile.id}
+              sx={{
+                p: 1,
+                border: '1px solid #e0e0e0',
+                borderRadius: 1,
+                mb: 1,
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: '#f5f5f5',
+                },
+              }}
+              onClick={() => handleRecentTileClick(tile.id)}
+            >
+              <Typography>{tile.name}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };

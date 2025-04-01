@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Box,
   TextField,
@@ -105,7 +105,7 @@ const Calculator: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<Tile | null>(null);
-  const [isTileDataExpanded, setIsTileDataExpanded] = useState(true);
+  const [isTileDataExpanded, setIsTileDataExpanded] = useState(user && user.subscription === 'pro' ? false : true);
   const [verticalExpanded, setVerticalExpanded] = useState(false);
   const [horizontalExpanded, setHorizontalExpanded] = useState(false);
   const [projectName, setProjectName] = useState('');
@@ -192,17 +192,17 @@ const Calculator: React.FC = () => {
     }
   }, [location.state]);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchTiles = async () => {
       try {
         const defaultTilesResponse = await api.get('/api/tiles');
         const defaultTiles = defaultTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: false }));
-        const tilesList = [...defaultTiles];
+        let tilesList = [...defaultTiles];
 
-        if (user.subscription === 'pro') {
+        if (user && user.subscription === 'pro') {
           const personalTilesResponse = await api.get('/api/users/tiles');
           const personalTiles = personalTilesResponse.data.map((tile: Tile) => ({ ...tile, isPersonal: true }));
-          tilesList.push(...personalTiles);
+          tilesList = [...tilesList, ...personalTiles];
         }
 
         const uniqueTilesMap = new Map<string, Tile>();
@@ -230,12 +230,9 @@ const Calculator: React.FC = () => {
       }
     };
 
-    if (user.subscription === 'pro') {
-      fetchTiles(); // Only fetch for Pro users
-    } else {
-      setTiles([]); // Clear tiles for free users
-    }
-  }, [user.subscription]);
+    fetchTiles();
+  }, [user]);
+
   useEffect(() => {
     if (!inputs.rafterHeights.some(h => h > 0)) {
       setVerticalExpanded(false);
@@ -247,10 +244,6 @@ const Calculator: React.FC = () => {
       setHorizontalExpanded(false);
     }
   }, [inputs.widths]);
-
-  useEffect(() => {
-    setIsTileDataExpanded(selectedTile === null || selectedTile !== null);
-  }, [selectedTile]);
 
   const handleTileSelect = (event: React.SyntheticEvent, value: Tile | null) => {
     if (!value) {
@@ -352,7 +345,7 @@ const Calculator: React.FC = () => {
     const errors: string[] = [];
 
     if (step === 0) {
-      if (user.subscription === 'pro' && !inputs.tileSelection && !inputs.materialType) {
+      if (user && user.subscription === 'pro' && !inputs.tileSelection && !inputs.materialType) {
         errors.push('Please select a tile or input custom tile data.');
       }
       if (!inputs.materialType) {
@@ -457,7 +450,7 @@ const Calculator: React.FC = () => {
   const handleNext = async () => {
     if (!validateStep(activeStep)) return;
 
-    if (activeStep === 0 && user.subscription === 'pro' && !inputs.tileSelection) {
+    if (activeStep === 0 && user && user.subscription === 'pro' && !inputs.tileSelection) {
       await handleSaveCustomTile();
       if (error) return; // Stop if save failed
     }
@@ -553,7 +546,7 @@ const Calculator: React.FC = () => {
       crossBonded: 'NO',
     });
     setSelectedTile(null);
-    setIsTileDataExpanded(true);
+    setIsTileDataExpanded(user && user.subscription === 'pro' ? false : true);
     setVerticalExpanded(false);
     setHorizontalExpanded(false);
     setResults(null);
@@ -607,9 +600,7 @@ const Calculator: React.FC = () => {
     }
   };
 
-  const steps = user.subscription === 'pro'
-    ? ['Choose Tile', 'Roof Dimensions', 'Settings', 'Results']
-    : ['Tile Data', 'Roof Dimensions', 'Settings', 'Results'];
+  const steps = ['Choose Tile', 'Roof Dimensions', 'Settings', 'Results'];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -650,37 +641,64 @@ const Calculator: React.FC = () => {
         )}
         {activeStep === 0 && (
           <Box sx={{ mb: 4 }}>
-            {user.subscription === 'pro' && (
-              <>
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                  Choose Tile
-                </Typography>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'medium', color: 'text.primary' }}>
+              Choose Tile
+            </Typography>
+            {user && user.subscription === 'pro' ? (
+              <Autocomplete
+                options={tiles}
+                getOptionLabel={(option) => (option.isPersonal ? `Personal: ${option.name}` : option.name)}
+                groupBy={(option) => option.type}
+                value={selectedTile}
+                onChange={handleTileSelect}
+                renderInput={(params) => (
+                  <TextField {...params} label="Select Tile" variant="outlined" fullWidth />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    {option.isPersonal ? `Personal: ${option.name}` : option.name}
+                  </li>
+                )}
+                sx={{ mb: 2 }}
+              />
+            ) : (
+              <Box sx={{ position: 'relative' }}>
                 <Autocomplete
                   options={tiles}
-                  getOptionLabel={(option) => (option.isPersonal ? `Personal: ${option.name}` : option.name)}
+                  getOptionLabel={(option) => option.name}
                   groupBy={(option) => option.type}
-                  value={selectedTile}
-                  onChange={handleTileSelect}
+                  value={null}
+                  disabled
                   renderInput={(params) => (
-                    <TextField {...params} label="Select Tile" variant="outlined" fullWidth />
-                  )}
-                  renderOption={(props, option) => (
-                    <li {...props}>
-                      {option.isPersonal ? `Personal: ${option.name}` : option.name}
-                    </li>
+                    <TextField {...params} label="Select Tile (Pro Feature)" variant="outlined" fullWidth />
                   )}
                   sx={{ mb: 2 }}
                 />
-              </>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  component={Link}
+                  to="/subscribe"
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 1,
+                  }}
+                >
+                  Upgrade to Pro
+                </Button>
+              </Box>
             )}
             <Accordion
               expanded={isTileDataExpanded}
               onChange={(event, expanded) => setIsTileDataExpanded(expanded)}
-              sx={{ mt: user.subscription === 'pro' ? 2 : 0 }}
+              sx={{ mt: 2 }}
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                  {user.subscription === 'pro' && selectedTile === null ? 'Input Custom Tile' : 'Tile Data'}
+                  {user && user.subscription === 'pro' && selectedTile === null ? 'Input Custom Tile' : 'Tile Data'}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -821,7 +839,7 @@ const Calculator: React.FC = () => {
                       />
                     </Tooltip>
                   </Grid>
-                  {user.subscription === 'pro' && (
+                  {user && user.subscription === 'pro' && (
                     <Grid item xs={12}>
                       <Button
                         variant="contained"
@@ -857,7 +875,7 @@ const Calculator: React.FC = () => {
                 <Grid container spacing={3}>
                   {inputs.rafterHeights.map((height, index) => (
                     <Grid item xs={12} key={index}>
-                      {user.subscription === 'pro' && (
+                      {user && user.subscription === 'pro' && (
                         <TextField
                           label={`Rafter ${index + 1} Name`}
                           value={inputs.rafterHeightNames[index]}
@@ -924,7 +942,7 @@ const Calculator: React.FC = () => {
                 <Grid container spacing={3}>
                   {inputs.widths.map((width, index) => (
                     <Grid item xs={12} key={index}>
-                      {user.subscription === 'pro' && (
+                      {user && user.subscription === 'pro' && (
                         <TextField
                           label={`Width ${index + 1} Name`}
                           value={inputs.widthNames[index]}

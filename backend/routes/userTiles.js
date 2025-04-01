@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { user, userTile } = require('../db');
+const { Op } = require('sequelize');
 
 let bcrypt;
 try {
@@ -13,11 +14,15 @@ try {
 
 const { authenticateToken } = require('../middleware/auth');
 
+// GET /api/user-tiles/me - Fetch user profile
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const foundUser = await user.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'role', 'subscription'],
+      attributes: ['id', 'email', 'role', 'subscription'], // Updated to use email
     });
+    if (!foundUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.json(foundUser);
   } catch (err) {
     console.error('Error fetching user profile:', err.message);
@@ -26,19 +31,23 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/user-tiles/me - Update user profile
 router.put('/me', authenticateToken, async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body; // Updated to use email
   try {
     const updates = {};
-    if (username) updates.username = username;
+    if (email) updates.email = email;
     if (password) {
-      console.log('Hashing password for user update:', username);
+      console.log('Hashing password for user update:', email);
       updates.password = await bcrypt.hash(password, 10);
     }
     const updatedUser = await user.update(updates, {
       where: { id: req.user.id },
       returning: true,
     });
+    if (updatedUser[0] === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.json(updatedUser[1][0]);
   } catch (err) {
     console.error('Error updating user profile:', err.message);
@@ -47,16 +56,32 @@ router.put('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/user-tiles/tiles - Fetch user's custom tiles with pagination, search, and sorting
 router.get('/tiles', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
   }
+
+  const { page = 1, limit = 10, search, sort = 'createdAt', order = 'DESC' } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+
   try {
-    const tiles = await userTile.findAll({
-      where: { userId: req.user.id },
+    let whereClause = { userId: req.user.id };
+    if (search) {
+      whereClause.name = {
+        [Op.iLike]: `%${search}%`, // Case-insensitive search
+      };
+    }
+
+    const { rows: tiles, count: total } = await userTile.findAndCountAll({
+      where: whereClause,
+      limit: parseInt(limit),
+      offset,
+      order: [[sort, order]],
     });
+
     console.log('Fetched personal tiles for user:', req.user.id, 'Count:', tiles.length);
-    res.json(tiles);
+    res.json({ tiles, total });
   } catch (err) {
     console.error('Error fetching personal tiles:', err.message);
     console.error('Stack trace:', err.stack);
@@ -64,10 +89,12 @@ router.get('/tiles', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/user-tiles/tiles - Create a new custom tile
 router.post('/tiles', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
   }
+
   const {
     name,
     type,
@@ -91,7 +118,7 @@ router.post('/tiles', authenticateToken, async (req, res) => {
       console.log('Validation failed: Missing required fields');
       return res.status(400).json({
         message: 'Missing required fields',
-        missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded }
+        missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded },
       });
     }
 
@@ -153,10 +180,12 @@ router.post('/tiles', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/user-tiles/tiles/:id - Update a custom tile
 router.put('/tiles/:id', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
   }
+
   const { id } = req.params;
   const {
     name,
@@ -181,7 +210,7 @@ router.put('/tiles/:id', authenticateToken, async (req, res) => {
       console.log('Validation failed: Missing required fields');
       return res.status(400).json({
         message: 'Missing required fields',
-        missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded }
+        missing: { name: !name, type: !type, length: !length, width: !width, lhTileWidth: lhTileWidth === undefined, crossbonded: !crossbonded },
       });
     }
 
@@ -264,25 +293,58 @@ router.put('/tiles/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /api/user-tiles/tiles/:id - Delete a custom tile
 router.delete('/tiles/:id', authenticateToken, async (req, res) => {
   if (req.user.subscription === 'free') {
     return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
   }
+
   const { id } = req.params;
+
   try {
     const result = await userTile.destroy({
       where: { id, userId: req.user.id },
     });
+
     if (result === 0) {
       console.log('Tile not found for deletion:', id);
-      return res.status(404).json({ message: 'Tile not found' });
+      return res.status(404).json({ message: 'Tile not found or you do not have permission to delete it' });
     }
+
     console.log('Personal tile deleted successfully:', id);
     res.json({ message: 'Personal tile deleted successfully' });
   } catch (err) {
     console.error('Error deleting personal tile:', err.message);
     console.error('Stack trace:', err.stack);
     res.status(500).json({ message: 'Error deleting personal tile', error: err.message });
+  }
+});
+
+// POST /api/user-tiles/tiles/bulk-delete - Delete multiple custom tiles
+router.post('/tiles/bulk-delete', authenticateToken, async (req, res) => {
+  if (req.user.subscription === 'free') {
+    return res.status(403).json({ message: 'Upgrade to Pro to manage personal tiles' });
+  }
+
+  const { tileIds } = req.body;
+
+  try {
+    if (!Array.isArray(tileIds) || tileIds.length === 0) {
+      return res.status(400).json({ message: 'tileIds must be a non-empty array' });
+    }
+
+    const result = await userTile.destroy({
+      where: { id: tileIds, userId: req.user.id },
+    });
+
+    if (result === 0) {
+      return res.status(404).json({ message: 'No tiles found to delete' });
+    }
+
+    res.json({ message: `Successfully deleted ${result} tiles` });
+  } catch (err) {
+    console.error('Error during bulk delete:', err.message);
+    res.status(500).json({ message: 'Error during bulk delete', error: err.message });
   }
 });
 

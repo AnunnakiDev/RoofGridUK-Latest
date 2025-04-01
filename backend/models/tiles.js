@@ -1,5 +1,10 @@
 module.exports = (sequelize, DataTypes) => {
   const Tile = sequelize.define('tile', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -57,6 +62,11 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'tile',
     timestamps: true,
   });
+
+  // No associations for Tile model
+  Tile.associate = (models) => {
+    // No relationship with userTile, as userTile represents custom tiles, not references to default tiles
+  };
 
   return Tile;
 };

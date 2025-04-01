@@ -1,16 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import {
   Box,
   Typography,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
-  IconButton,
+  Button,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -19,104 +13,78 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
-  Button,
-  Pagination,
-  Checkbox,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+  IconButton,
+  Card,
+  CardContent,
+  Link,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { DataGrid, GridColDef, GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import api from '../../services/api';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import Papa from 'papaparse';
 
 interface User {
   id: number;
   email: string;
   role: 'admin' | 'user';
   subscription: 'basic' | 'pro';
+  password?: string; // Add password as an optional field
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 const UserManagement: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Detect mobile screens (xs to sm)
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [sectionExpanded, setSectionExpanded] = useState<boolean>(true);
-  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]); // Store favorite user IDs
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('');
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openBulkDeleteDialog, setOpenBulkDeleteDialog] = useState(false);
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]); // For bulk actions
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
     role: 'user' as 'admin' | 'user',
     subscription: 'basic' as 'basic' | 'pro',
   });
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [search, setSearch] = useState('');
-  const limit = 10;
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+        const response = await api.get(`/api/admin/users?search=${encodeURIComponent(search)}`);
         setUsers(response.data.users);
-        setTotalPages(response.data.totalPages);
-        setTotalUsers(response.data.totalUsers);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch users');
       }
     };
 
     fetchUsers();
-  }, [page, search]);
+  }, [search]);
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setPage(1);
-    setSelectedUsers([]); // Clear selection on search
-  };
-
-  const handleSelectUser = (userId: number) => {
-    setSelectedUsers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      setSelectedUsers(users.map((user) => user.id));
-    } else {
-      setSelectedUsers([]);
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const storedFavorites = localStorage.getItem('favoriteUsersAdmin');
+    if (storedFavorites) {
+      setFavorites(JSON.parse(storedFavorites));
     }
-  };
-
-  const handleBulkDelete = () => {
-    setOpenBulkDeleteDialog(true);
-  };
-
-  const handleBulkDeleteConfirm = async () => {
-    try {
-      await api.post('/api/admin/users/bulk-delete', { userIds: selectedUsers });
-      setSuccess(`Successfully deleted ${selectedUsers.length} users`);
-      setSelectedUsers([]);
-      // Refresh the user list
-      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
-      setUsers(fetchResponse.data.users);
-      setTotalPages(fetchResponse.data.totalPages);
-      setTotalUsers(fetchResponse.data.totalUsers);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete users');
-    }
-    setOpenBulkDeleteDialog(false);
-  };
+  }, []);
 
   const handleAddUser = () => {
     setNewUser({
@@ -136,6 +104,28 @@ const UserManagement: React.FC = () => {
   const handleDeleteUser = (user: User) => {
     setSelectedUser(user);
     setOpenDeleteDialog(true);
+  };
+
+  const handleBulkDelete = () => {
+    setOpenBulkDeleteDialog(true);
+  };
+
+  const handleToggleFavorite = (userId: number) => {
+    const updatedFavorites = favorites.includes(userId)
+      ? favorites.filter((id) => id !== userId)
+      : [...favorites, userId];
+    setFavorites(updatedFavorites);
+    localStorage.setItem('favoriteUsersAdmin', JSON.stringify(updatedFavorites));
+  };
+
+  const handleRowClick = (user: User) => {
+    setSelectedUser(user);
+    setOpenDetailsDialog(true);
+  };
+
+  const handleDetailsDialogClose = () => {
+    setOpenDetailsDialog(false);
+    setSelectedUser(null);
   };
 
   const handleAddDialogClose = () => {
@@ -169,11 +159,6 @@ const UserManagement: React.FC = () => {
       setUsers([...users, response.data]);
       setSuccess('User created successfully');
       handleAddDialogClose();
-      // Refresh the user list
-      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
-      setUsers(fetchResponse.data.users);
-      setTotalPages(fetchResponse.data.totalPages);
-      setTotalUsers(fetchResponse.data.totalUsers);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create user');
     }
@@ -202,15 +187,32 @@ const UserManagement: React.FC = () => {
     try {
       await api.delete(`/api/admin/users/${selectedUser.id}`);
       setUsers(users.filter((user) => user.id !== selectedUser.id));
+      // Remove from favorites if deleted
+      if (favorites.includes(selectedUser.id)) {
+        const updatedFavorites = favorites.filter((id) => id !== selectedUser.id);
+        setFavorites(updatedFavorites);
+        localStorage.setItem('favoriteUsersAdmin', JSON.stringify(updatedFavorites));
+      }
       setSuccess('User deleted successfully');
       handleDeleteDialogClose();
-      // Refresh the user list
-      const fetchResponse = await api.get(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
-      setUsers(fetchResponse.data.users);
-      setTotalPages(fetchResponse.data.totalPages);
-      setTotalUsers(fetchResponse.data.totalUsers);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete user');
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      await api.post('/api/admin/users/bulk-delete', { userIds: selectedUsers });
+      setUsers(users.filter((user) => !selectedUsers.includes(user.id)));
+      // Remove deleted users from favorites
+      const updatedFavorites = favorites.filter((id) => !selectedUsers.includes(id));
+      setFavorites(updatedFavorites);
+      localStorage.setItem('favoriteUsersAdmin', JSON.stringify(updatedFavorites));
+      setSelectedUsers([]);
+      setSuccess(`Successfully deleted ${selectedUsers.length} users`);
+      handleBulkDeleteDialogClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete users');
     }
   };
 
@@ -224,54 +226,190 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  // CSV Import Handler
+  const handleCSVImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse<User>(file, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ',', // Explicitly specify comma as delimiter
+      dynamicTyping: true, // Automatically convert numerical fields to numbers
+      transform: (value, field) => {
+        // Trim whitespace from string fields
+        if (typeof value === 'string') {
+          return value.trim();
+        }
+        return value;
+      },
+      complete: async (result: Papa.ParseResult<User>) => {
+        console.log('Parse Result Meta:', result.meta); // Debug log for metadata
+        const parsedUsers = result.data as Partial<User>[];
+        console.log('Parsed Users:', parsedUsers); // Debug log
+
+        // Filter out empty rows
+        const nonEmptyUsers = parsedUsers.filter((user) => user.email && user.role && user.subscription && user.password);
+        if (nonEmptyUsers.length === 0) {
+          setError('No valid users found in CSV.');
+          return;
+        }
+
+        const formattedUsers = nonEmptyUsers.map((user) => ({
+          email: user.email ? String(user.email).trim() : '',
+          password: user.password ? String(user.password).trim() : '',
+          role: user.role ? (String(user.role).toLowerCase() as 'user' | 'admin') : 'user',
+          subscription: user.subscription ? (String(user.subscription).toLowerCase() as 'basic' | 'pro') : 'basic',
+        }));
+
+        console.log('Formatted Users:', formattedUsers); // Debug log
+
+        // Validate the parsed users
+        const invalidUsers = formattedUsers.filter(
+          (user) =>
+            !user.email ||
+            !user.password ||
+            !user.role ||
+            !['user', 'admin'].includes(user.role) ||
+            !user.subscription ||
+            !['basic', 'pro'].includes(user.subscription)
+        );
+        if (invalidUsers.length > 0) {
+          console.log('Invalid Users:', invalidUsers); // Debug log
+          setError('Invalid data in CSV: Ensure all users have email, password, role (user or admin), and subscription (basic or pro).');
+          return;
+        }
+
+        try {
+          const response = await api.post('/api/admin/users/bulk-import', formattedUsers);
+          console.log('Backend Response:', response.data); // Debug log
+          setUsers([...users, ...response.data]);
+          setSuccess(`Successfully imported ${formattedUsers.length} users`);
+        } catch (err: any) {
+          console.error('Backend Error:', err.response?.data); // Debug log
+          setError(err.response?.data?.message || 'Failed to import users');
+        }
+      },
+      error: (error: Error) => {
+        setError('Failed to parse CSV file: ' + error.message);
+      },
+    });
+
+    // Reset the file input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  // Filter users based on search and role
+  const filteredUsers = users.filter((user: User) => {
+    const matchesSearch = user.email.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = filterRole ? user.role === filterRole : true;
+    return matchesSearch && matchesRole;
+  });
+
+  // Get unique roles for filtering
+  const userRoles = Array.from(new Set(users.map((user: User) => user.role)));
+
+  // Get recently updated users
+  const recentlyUpdatedUsers = [...users]
+    .sort((a: User, b: User) => {
+      if (a.updatedAt && b.updatedAt) {
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }
+      return b.id - a.id; // Fallback to ID if updatedAt is unavailable
+    })
+    .slice(0, 3);
+
+  // Get favorited users
+  const favoriteUsers = users.filter((user: User) => favorites.includes(user.id));
+
+  // Define DataGrid columns with responsive widths
+  const columns: GridColDef[] = [
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <IconButton onClick={() => handleEditUser(params.row as User)} color="primary">
+            <EditIcon />
+          </IconButton>
+          <IconButton onClick={() => handleDeleteUser(params.row as User)} color="error">
+            <DeleteIcon />
+          </IconButton>
+          <IconButton onClick={() => handleToggleFavorite(params.row.id)} color="primary">
+            {favorites.includes(params.row.id) ? <StarIcon /> : <StarBorderIcon />}
+          </IconButton>
+        </Box>
+      ),
+    },
+    { field: 'email', headerName: 'Email', flex: 1, minWidth: 200, sortable: true },
+    { field: 'role', headerName: 'Role', width: 120, sortable: true },
+    { field: 'subscription', headerName: 'Subscription', width: 120, sortable: true },
+    { field: 'createdAt', headerName: 'Created At', width: 180, sortable: true, type: 'dateTime', valueGetter: ({ value }) => value && new Date(value) },
+    { field: 'updatedAt', headerName: 'Updated At', width: 180, sortable: true, type: 'dateTime', valueGetter: ({ value }) => value && new Date(value) },
+  ];
+
   return (
-    <>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      <Accordion
-        expanded={sectionExpanded}
-        onChange={(event, isExpanded) => setSectionExpanded(isExpanded)}
-        sx={{ mb: 2 }}
-      >
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1b75bc' }}>
-            User Management
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: { xs: 'stretch', sm: 'center' },
-              mb: 2,
-              px: { xs: 1, sm: 0 },
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="Search by Email"
-              value={search}
-              onChange={handleSearchChange}
-              fullWidth
-              sx={{ maxWidth: { xs: '100%', sm: 300 } }}
-              InputLabelProps={{ style: { color: '#1b75bc' } }}
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body1">
-                Total Users: {totalUsers}
-              </Typography>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* Page Title and Introduction */}
+      <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
+        User Management
+      </Typography>
+      <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary', maxWidth: 800 }}>
+        User Management allows admins to oversee the users in the RoofGrid UK system. Use the table below to add, edit, or delete users, import users via CSV, and mark favorites for quick access.
+      </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
+
+      {users.length === 0 ? (
+        <Typography align="center" color="text.secondary">
+          No users found. Add a new user or import users via CSV.
+        </Typography>
+      ) : (
+        <>
+          {/* DataGrid for Managing Users */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                label="Search by Email"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{ width: { xs: '100%', sm: 200 } }}
+                InputLabelProps={{ style: { color: '#1b75bc' } }}
+              />
+              <FormControl sx={{ width: { xs: '100%', sm: 200 } }}>
+                <InputLabel sx={{ color: '#1b75bc' }}>Filter by Role</InputLabel>
+                <Select
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  label="Filter by Role"
+                >
+                  <MenuItem value="">All Roles</MenuItem>
+                  {userRoles.map((role) => (
+                    <MenuItem key={role} value={role}>{role}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {selectedUsers.length > 0 && (
                 <Button
                   variant="contained"
                   color="error"
                   onClick={handleBulkDelete}
-                  sx={{
-                    py: 1,
-                    fontSize: { xs: '0.9rem', sm: '1rem' },
-                    width: { xs: 'auto', sm: 'auto' },
-                  }}
+                  sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' }, px: { xs: 2, sm: 3 } }}
                 >
                   Delete Selected ({selectedUsers.length})
                 </Button>
@@ -279,112 +417,194 @@ const UserManagement: React.FC = () => {
               <Button
                 variant="contained"
                 color="primary"
+                component="label"
+                sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' }, px: { xs: 2, sm: 3 } }}
+              >
+                Import CSV
+                <input type="file" accept=".csv" hidden onChange={handleCSVImport} />
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
                 onClick={handleAddUser}
-                sx={{
-                  py: 1,
-                  fontSize: { xs: '0.9rem', sm: '1rem' },
-                  width: { xs: 'auto', sm: 'auto' },
-                }}
+                sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' }, px: { xs: 2, sm: 3 } }}
               >
                 Add New User
               </Button>
             </Box>
           </Box>
-          {users.length === 0 ? (
-            <Typography align="center" color="text.secondary">
-              No users found.
+          <Box sx={{ height: 400, width: '100%', mb: 4 }}>
+            <DataGrid
+              rows={filteredUsers}
+              columns={columns}
+              pageSizeOptions={[5, 10, 20]}
+              checkboxSelection
+              onRowSelectionModelChange={(newSelection: GridRowSelectionModel) => {
+                setSelectedUsers(newSelection as number[]);
+              }}
+              rowSelectionModel={selectedUsers}
+              onRowClick={(params, event) => {
+                // Prevent row click when clicking on the Actions column
+                if ((event.target as HTMLElement).closest('.MuiDataGrid-cell--withRenderer')) return;
+                handleRowClick(params.row as User);
+              }}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: true,
+                  quickFilterProps: { debounceMs: 500 },
+                  csvOptions: {
+                    fields: columns
+                      .filter((col) => col.field !== 'actions') // Exclude the actions column
+                      .map((col) => col.field),
+                  },
+                },
+              }}
+              initialState={{
+                columns: {
+                  columnVisibilityModel: {
+                    createdAt: !isMobile,
+                    updatedAt: !isMobile,
+                  },
+                },
+              }}
+              sx={{
+                '& .MuiDataGrid-columnHeaders': {
+                  bgcolor: '#f5f5f5',
+                },
+                '& .MuiDataGrid-cell': {
+                  fontSize: { xs: '0.85rem', sm: '0.95rem' },
+                },
+                '& .MuiDataGrid-toolbarContainer': {
+                  p: 1,
+                  bgcolor: '#f5f5f5',
+                  '& .MuiTextField-root': {
+                    width: { xs: '100%', sm: 'auto' },
+                  },
+                },
+                '& .MuiDataGrid-row': {
+                  cursor: 'pointer',
+                },
+              }}
+            />
+          </Box>
+
+          {/* Recently Updated Users Section */}
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 'medium', color: '#1b75bc' }}>
+            Recently Updated Users
+          </Typography>
+          {recentlyUpdatedUsers.length === 0 ? (
+            <Typography color="text.secondary" sx={{ mb: 4 }}>
+              No recent users available.
             </Typography>
           ) : (
-            <>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Checkbox
-                    checked={selectedUsers.length === users.length && users.length > 0}
-                    onChange={handleSelectAll}
-                    color="primary"
-                  />
-                  <Typography variant="body2" sx={{ color: '#1b75bc' }}>
-                    Select All
-                  </Typography>
-                </Box>
-                {users.map((user) => (
-                  <Accordion key={user.id} sx={{ mb: 1 }} defaultExpanded>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Checkbox
-                            checked={selectedUsers.includes(user.id)}
-                            onChange={() => handleSelectUser(user.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            color="primary"
-                          />
-                          <Typography
-                            variant="h6"
-                            sx={{ fontWeight: 'medium', color: 'primary.main', fontSize: { xs: '0.9rem', sm: '1.1rem' } }}
-                          >
-                            {user.email}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <IconButton onClick={(e) => { e.stopPropagation(); handleEditUser(user); }} color="primary">
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton onClick={(e) => { e.stopPropagation(); handleDeleteUser(user); }} color="error">
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box sx={{ overflowX: 'auto' }}>
-                        <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
-                          <TableBody>
-                            <TableRow>
-                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Email</TableCell>
-                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                {user.email}
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Role</TableCell>
-                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                {user.role}
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, py: 0.25 }}>Subscription</TableCell>
-                              <TableCell sx={{ fontSize: { xs: '0.85rem', sm: '0.95rem' }, fontWeight: 'bold', py: 0.25 }}>
-                                {user.subscription}
-                              </TableCell>
-                            </TableRow>
-                          </TableBody>
-                        </Table>
-                      </Box>
-                    </AccordionDetails>
-                  </Accordion>
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={handlePageChange}
-                  color="primary"
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
+              {recentlyUpdatedUsers.map((user) => (
+                <Card
+                  key={user.id}
                   sx={{
-                    '& .MuiPaginationItem-root': {
-                      color: '#1b75bc',
+                    bgcolor: '#ffffff',
+                    boxShadow: 1,
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: 3,
+                      transform: 'scale(1.02)',
+                      cursor: 'pointer',
                     },
-                    '& .Mui-selected': {
-                      bgcolor: '#1b75bc',
-                      color: 'white',
-                    },
+                    width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(33.33% - 11px)' },
                   }}
-                />
-              </Box>
-            </>
+                  onClick={() => handleRowClick(user)}
+                >
+                  <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'medium', color: '#1b75bc', mb: 1 }}>
+                      {user.email}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                      Role: {user.role}
+                    </Typography>
+                    <Link
+                      component="button"
+                      underline="hover"
+                      sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditUser(user);
+                      }}
+                    >
+                      Edit
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
           )}
-        </AccordionDetails>
-      </Accordion>
+
+          {/* Favorite Users Section */}
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 'medium', color: '#1b75bc' }}>
+            Favorite Users
+          </Typography>
+          {favoriteUsers.length === 0 ? (
+            <Typography color="text.secondary" sx={{ mb: 4 }}>
+              No favorite users yet. Mark users as favorites in the table above.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
+              {favoriteUsers.map((user) => (
+                <Card
+                  key={user.id}
+                  sx={{
+                    bgcolor: '#ffffff',
+                    boxShadow: 1,
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: 3,
+                      transform: 'scale(1.02)',
+                      cursor: 'pointer',
+                    },
+                    width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(33.33% - 11px)' },
+                  }}
+                  onClick={() => handleRowClick(user)}
+                >
+                  <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'medium', color: '#1b75bc', mb: 1 }}>
+                      {user.email}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                      Role: {user.role}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Link
+                        component="button"
+                        underline="hover"
+                        sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditUser(user);
+                        }}
+                      >
+                        Edit
+                      </Link>
+                      <Link
+                        component="button"
+                        underline="hover"
+                        sx={{ color: '#1b75bc', fontSize: '0.9rem' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(user.id);
+                        }}
+                      >
+                        Remove Favorite
+                      </Link>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          )}
+        </>
+      )}
 
       {/* Add New User Dialog */}
       <Dialog open={openAddDialog} onClose={handleAddDialogClose} maxWidth="sm" fullWidth>
@@ -487,6 +707,70 @@ const UserManagement: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* User Details Dialog */}
+      <Dialog open={openDetailsDialog} onClose={handleDetailsDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          User Details
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Email: {selectedUser?.email}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 250, backgroundColor: 'grey.200' }}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, py: 0.5 }}>Email</TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', py: 0.5 }}>
+                      {selectedUser.email}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, py: 0.5 }}>Role</TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', py: 0.5 }}>
+                      {selectedUser.role}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, py: 0.5 }}>Subscription</TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', py: 0.5 }}>
+                      {selectedUser.subscription}
+                    </TableCell>
+                  </TableRow>
+                  {selectedUser.createdAt && (
+                    <TableRow>
+                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, py: 0.5 }}>Created At</TableCell>
+                      <TableCell sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', py: 0.5 }}>
+                        {new Date(selectedUser.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {selectedUser.updatedAt && (
+                    <TableRow>
+                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, py: 0.5 }}>Updated At</TableCell>
+                      <TableCell sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', py: 0.5 }}>
+                        {new Date(selectedUser.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDetailsDialogClose} color="secondary">
+            Close
+          </Button>
+          {selectedUser && (
+            <Button onClick={() => handleEditUser(selectedUser)} color="primary">
+              Edit User
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={openDeleteDialog} onClose={handleDeleteDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle>Confirm Delete</DialogTitle>
@@ -522,7 +806,7 @@ const UserManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 };
 

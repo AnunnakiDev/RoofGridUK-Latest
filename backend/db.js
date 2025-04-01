@@ -15,7 +15,7 @@ const createDatabaseIfNotExists = async () => {
   const client = new Client({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
-    password: process.env.DB_PASS || 'password1234', // Use environment variable
+    password: process.env.DB_PASS || 'password1234',
     port: process.env.DB_PORT || 5432,
     database: 'postgres', // Connect to the default 'postgres' database
   });
@@ -66,19 +66,21 @@ const user = require('./models/user')(sequelize, DataTypes);
 console.log('User model imported successfully, table name:', user.tableName);
 const userTile = require('./models/userTile')(sequelize, DataTypes);
 console.log('UserTile model imported successfully, table name:', userTile.tableName);
-const passwordResetToken = require('./models/passwordResetToken')(sequelize);
+const passwordResetToken = require('./models/passwordResetToken')(sequelize, DataTypes); // Added DataTypes
 console.log('PasswordResetToken model imported successfully, table name:', passwordResetToken.tableName);
 
 // Define associations
 const models = { tile, project, user, userTile, passwordResetToken };
 Object.keys(models).forEach(modelName => {
-  if (models[modelName].associate) {
+  if (typeof models[modelName].associate === 'function') { // Check if associate is a function
     console.log(`Setting up associations for model: ${modelName}`);
     models[modelName].associate(models);
+  } else {
+    console.log(`No associate method found for model: ${modelName}`);
   }
 });
 
-// Sync database using migrations
+// Initialize database without sync
 const initDb = async () => {
   try {
     // Create the database if it doesn't exist
@@ -88,11 +90,6 @@ const initDb = async () => {
     console.log('Testing database connection to roofgrid_uk...');
     await sequelize.authenticate();
     console.log('Database connection established successfully.');
-
-    // Note: Migrations handle schema changes; sync with alter for minor adjustments
-    console.log('Starting database sync...');
-    await sequelize.sync({ alter: true }); // Alter tables if needed, no drop
-    console.log('Database synced successfully.');
 
     // Verify tables (optional for debugging)
     console.log('Verifying user table...');

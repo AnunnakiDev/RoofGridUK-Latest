@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Typography, TextField, Button, Alert, Link, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, TextField, Button, Alert, Link, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Checkbox } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { useUser } from '../context/UserContext';
 import api from '../services/api';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import PageLayout from '../components/PageLayout';
 
 interface JwtPayload {
   id: number;
@@ -14,11 +13,57 @@ interface JwtPayload {
   email: string;
 }
 
+const heroStyles = {
+  width: '100%',
+  height: { xs: '300px', md: '400px' },
+  backgroundImage: 'url(/images/uk-pitched-roof.jpg)', // Placeholder roofing image
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  mb: 0, // Minimal space below hero to match homepage
+  '&:before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    bgcolor: 'rgba(0, 0, 0, 0.4)', // Dark overlay for text readability
+  },
+};
+
+const titleStyles = {
+  color: 'white',
+  fontSize: { xs: 28, md: 36 },
+  fontWeight: 'bold',
+  textTransform: 'uppercase',
+  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+  zIndex: 1,
+  textAlign: 'center',
+  maxWidth: '90%',
+  mt: 8, // Matches homepage for vertical centering
+};
+
+const subtitleStyles = {
+  color: 'white',
+  mt: 1,
+  fontSize: { xs: 16, md: 20 },
+  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+  zIndex: 1,
+  textAlign: 'center',
+  maxWidth: '90%',
+};
+
 const Login: React.FC = () => {
   const { setUser } = useUser();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false); // State for "Remember Me"
   const [error, setError] = useState<string | null>(null);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -57,21 +102,33 @@ const Login: React.FC = () => {
     }
 
     try {
-      const response = await api.post('/api/auth/login', { email, password });
+      const response = await api.post('/api/auth/login', { email, password, rememberMe });
       const token = response.data.token;
       const decoded: JwtPayload = jwtDecode(token);
-      setUser({
+
+      // Store user data in context
+      const userData = {
         id: decoded.id,
         token: token,
         role: decoded.role,
         subscription: decoded.subscription,
         email: decoded.email,
-      });
-      if (decoded.role === 'admin') {
-        navigate('/admin/projects');
+      };
+      setUser(userData);
+
+      // Store token and user data based on "Remember Me"
+      if (rememberMe) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
       } else {
-        navigate('/calculator');
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(userData));
       }
+
+      // Redirect to the preserved path or default based on role
+      const redirectPath = localStorage.getItem('redirectAfterLogin') || (decoded.role === 'admin' ? '/admin/profile' : '/calculator');
+      localStorage.removeItem('redirectAfterLogin');
+      navigate(redirectPath);
     } catch (err: any) {
       const remaining = err.response?.headers['ratelimit-remaining'];
       if (remaining !== undefined) {
@@ -130,30 +187,62 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-      }}
-    >
-      <Navbar />
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      {/* Hero Section */}
+      <Box sx={heroStyles}>
+        <Typography variant="h2" sx={titleStyles}>
+          Log In to RoofGrid UK
+        </Typography>
+        <Typography variant="subtitle1" sx={subtitleStyles}>
+          Access your roofing projects with ease
+        </Typography>
+        <Box sx={{ 
+          mt: 2, 
+          mb: 1, 
+          display: 'flex', 
+          gap: 2, 
+          flexWrap: 'wrap', 
+          justifyContent: 'center', 
           alignItems: 'center',
-          justifyContent: 'center',
-          p: { xs: 2, sm: 3 },
-          pt: { xs: '80px', sm: '100px' },
-        }}
-      >
-        <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
+          zIndex: 1,
+        }}>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => navigate('/login')}
+            sx={{ 
+              bgcolor: '#1b75bc', 
+              '&:hover': { bgcolor: '#145ea8' }, 
+              minWidth: { xs: 160, md: 200 },
+              py: 1,
+            }}
+          >
+            Log In
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={() => navigate('/register')}
+            sx={{ 
+              color: 'white', 
+              borderColor: 'white', 
+              '&:hover': { borderColor: '#f5f5f5', color: '#f5f5f5' }, 
+              minWidth: { xs: 160, md: 200 },
+              py: 1,
+            }}
+          >
+            Sign Up Free
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Content wrapped in PageLayout */}
+      <PageLayout>
+        <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc', textAlign: 'center' }}>
           Login
         </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400 }}>
+        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400, mx: 'auto' }}>{error}</Alert>}
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 400, mx: 'auto' }}>
           <TextField
             label="Email"
             value={email}
@@ -181,6 +270,11 @@ const Login: React.FC = () => {
             required
             error={!!formErrors.password}
             helperText={formErrors.password}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />}
+            label="Remember Me"
+            sx={{ mt: 1, mb: 2 }}
           />
           <Button
             type="submit"
@@ -246,8 +340,7 @@ const Login: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
-      <Footer />
+      </PageLayout>
     </Box>
   );
 };

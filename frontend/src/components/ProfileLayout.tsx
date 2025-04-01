@@ -7,7 +7,7 @@ import { useUser } from 'context/UserContext';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-const AdminLayout: React.FC = () => {
+const ProfileLayout: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
@@ -20,18 +20,18 @@ const AdminLayout: React.FC = () => {
 
   // Define navigation items
   const navItems = [
-    { label: 'Admin Dashboard', path: '/admin/profile' },
-    { label: 'Projects', path: '/admin/projects' },
-    ...(user?.subscription === 'pro' ? [{ label: 'Personal Tiles', path: '/admin/personal-tiles' }] : []),
-    { label: 'Tile Management', path: '/admin/tile-management' },
-    { label: 'User Management', path: '/admin/user-management' },
+    { label: 'Saved Projects', path: '/profile/saved-projects' },
+    { label: 'Saved Tiles', path: '/profile/custom-tiles' },
+    { label: 'Profile', path: '/profile/profile' },
   ];
 
   // Update the active tab based on the current route
   useEffect(() => {
     const currentPath = location.pathname;
     const activeTabIndex = navItems.findIndex((item) => item.path === currentPath);
-    setTabValue(activeTabIndex !== -1 ? activeTabIndex : 0);
+    if (activeTabIndex !== -1) {
+      setTabValue(activeTabIndex);
+    }
   }, [location.pathname, navItems]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -44,30 +44,28 @@ const AdminLayout: React.FC = () => {
     const pathnames = location.pathname.split('/').filter((x) => x);
     const breadcrumbItems = [];
 
-    // Always start with "Admin"
+    // Always start with "Profile"
     breadcrumbItems.push(
       <Link
-        key="admin"
+        key="profile"
         underline="hover"
         color="inherit"
-        onClick={() => navigate('/admin/profile')}
+        onClick={() => navigate('/profile/saved-projects')}
         sx={{ cursor: 'pointer' }}
       >
-        Admin
+        Profile
       </Link>
     );
 
     // Map paths to labels
     const pathMap: { [key: string]: string } = {
-      'profile': 'Dashboard',
-      'projects': 'Projects',
-      'personal-tiles': 'Personal Tiles',
-      'tile-management': 'Tile Management',
-      'user-management': 'User Management',
+      'saved-projects': 'Saved Projects',
+      'custom-tiles': 'Saved Tiles',
+      'profile': 'Profile',
     };
 
     pathnames.forEach((value, index) => {
-      if (value === 'admin') return; // Skip "admin" as it's already added
+      if (value === 'profile') return; // Skip "profile" as it's already added
       const path = `/${pathnames.slice(0, index + 1).join('/')}`;
       const label = pathMap[value] || value;
       const isLast = index === pathnames.length - 1;
@@ -184,4 +182,4 @@ const AdminLayout: React.FC = () => {
   );
 };
 
-export default AdminLayout;
+export default ProfileLayout;

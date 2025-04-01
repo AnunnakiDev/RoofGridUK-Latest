@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Box, IconButton, Menu, MenuItem, Button } from '@mui/material';
+import { AppBar, Toolbar, Box, IconButton, Menu, MenuItem, Button, Tooltip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import CalculateIcon from '@mui/icons-material/Calculate';
 import { useUser } from '../context/UserContext';
 import WeatherWidget from './WeatherWidget';
 
@@ -30,7 +31,15 @@ const Navbar: React.FC = () => {
     navigate('/login');
   };
 
-  // Static pages always in burger menu
+  const handleCalculatorClick = () => {
+    if (user.id) {
+      navigate('/calculator');
+    } else {
+      navigate('/register');
+    }
+  };
+
+  // Static pages for burger menu
   const staticItems: NavItem[] = [
     { label: 'Home', path: '/' },
     { label: 'How to Use', path: '/how-to-use' },
@@ -40,43 +49,40 @@ const Navbar: React.FC = () => {
     { label: 'FAQ', path: '/faq' },
   ];
 
-  // Dynamic items based on user state
+  // Dynamic items based on user state (for main navbar)
   const dynamicItems: NavItem[] = !user.id
     ? [
-        { label: 'Calculator', path: '/calculator' },
+        { label: 'Calculator', path: '/calculator', action: handleCalculatorClick },
         { label: 'Login', path: '/login' },
-        { label: 'Sign Up', path: '/register' },
-      ]
-    : user.subscription === 'free'
-    ? [
-        { label: 'Calculator', path: '/calculator' },
-        { label: 'Upgrade to Pro', path: '/profile' },
       ]
     : [
-        { label: 'Calculator', path: '/calculator' },
-        { label: 'Profile', path: '/profile' },
-        { label: 'Projects', path: '/saved-projects' },
-        { label: 'Saved Tiles', path: '/custom-tiles' },
+        { label: 'Calculator', path: '/calculator', action: handleCalculatorClick },
       ];
 
   // Admin item if applicable
   const adminItems: NavItem[] = user.role === 'admin' ? [{ label: 'Admin Dashboard', path: '/admin/profile' }] : [];
 
-  // All items for mobile menu
-  const mobileMenuItems: NavItem[] = [
-    ...dynamicItems,
-    ...adminItems,
-    ...staticItems,
-    ...(user.id ? [{ label: 'Logout', action: handleLogout }] : []),
-  ];
+  // Items for mobile menu (burger menu)
+  const mobileMenuItems: NavItem[] = !user.id
+    ? [
+        { label: 'Calculator', path: '/calculator', action: handleCalculatorClick },
+        { label: 'Login', path: '/login' },
+        ...staticItems,
+      ]
+    : [
+        ...adminItems,
+        { label: 'Calculator', path: '/calculator', action: handleCalculatorClick },
+        ...staticItems,
+        { label: 'Logout', action: handleLogout },
+      ];
 
   return (
     <AppBar
       position="fixed"
       sx={{
         bgcolor: '#ffffff',
-        color: 'black',
-        borderTop: '4px solid #1b75bc', // Thicker blue line
+        color: '#1b75bc', // Primary blue for all text and icons
+        borderTop: '4px solid #1b75bc',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         top: 0,
         left: 0,
@@ -98,16 +104,44 @@ const Navbar: React.FC = () => {
           />
         </Box>
         {/* Desktop Navigation */}
-        <Box sx={{ flexGrow: 1, display: { xs: 'none', '800': 'flex' }, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: { xs: 'none', '800': 'flex' },
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            overflow: 'visible', // Ensure no clipping
+          }}
+        >
+          <WeatherWidget
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              mr: 2,
+              visibility: 'visible',
+              opacity: 1,
+            }}
+          />
           {dynamicItems.map((item) => (
-            <Button
-              key={item.label}
-              color="inherit"
-              onClick={() => navigate(item.path!)}
-              sx={{ mx: 1, fontSize: '1rem', textTransform: 'none' }}
-            >
-              {item.label}
-            </Button>
+            item.label === 'Calculator' ? (
+              <Tooltip title="Calculator" key={item.label}>
+                <IconButton
+                  color="inherit"
+                  onClick={item.action ? item.action : () => navigate(item.path!)}
+                  sx={{ mx: 1 }}
+                >
+                  <CalculateIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                key={item.label}
+                color="inherit"
+                onClick={item.action ? item.action : () => navigate(item.path!)}
+                sx={{ mx: 1, fontSize: '1rem', textTransform: 'none' }}
+              >
+                {item.label}
+              </Button>
+            )
           ))}
           {adminItems.map((item) => (
             <Button
@@ -119,7 +153,15 @@ const Navbar: React.FC = () => {
               {item.label}
             </Button>
           ))}
-          <WeatherWidget sx={{ display: { xs: 'none', sm: 'block' } }} /> {/* Hide below 600px */}
+          {user.id && (
+            <Button
+              color="inherit"
+              onClick={handleLogout}
+              sx={{ mx: 1, fontSize: '1rem', textTransform: 'none' }}
+            >
+              Logout
+            </Button>
+          )}
           <IconButton
             size="large"
             color="inherit"
@@ -134,21 +176,68 @@ const Navbar: React.FC = () => {
             onClose={handleClose}
             PaperProps={{ style: { width: '200px' } }}
           >
-            {staticItems.map((item) => (
-              <MenuItem key={item.label} onClick={() => { navigate(item.path!); handleClose(); }}>
+            {mobileMenuItems.map((item) => (
+              <MenuItem
+                key={item.label}
+                onClick={() => {
+                  item.action ? item.action() : navigate(item.path!);
+                  handleClose();
+                }}
+              >
                 {item.label}
               </MenuItem>
             ))}
-            {user.id && (
-              <MenuItem onClick={() => { handleLogout(); handleClose(); }}>
-                Logout
-              </MenuItem>
-            )}
           </Menu>
         </Box>
         {/* Mobile Navigation */}
-        <Box sx={{ flexGrow: 1, display: { xs: 'flex', '800': 'none' }, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <WeatherWidget sx={{ display: { xs: 'block', sm: 'none' } }} /> {/* Show only 600px+ */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: { xs: 'flex', '800': 'none' },
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            overflow: 'visible', // Ensure no clipping
+          }}
+        >
+          <WeatherWidget
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              mr: 1,
+              visibility: 'visible',
+              opacity: 1,
+            }}
+          />
+          {dynamicItems.map((item) => (
+            item.label === 'Calculator' ? (
+              <Tooltip title="Calculator" key={item.label}>
+                <IconButton
+                  color="inherit"
+                  onClick={item.action ? item.action : () => navigate(item.path!)}
+                  sx={{ mx: 1 }}
+                >
+                  <CalculateIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                key={item.label}
+                color="inherit"
+                onClick={item.action ? item.action : () => navigate(item.path!)}
+                sx={{ mx: 1, fontSize: '0.875rem', textTransform: 'none' }}
+              >
+                {item.label}
+              </Button>
+            )
+          ))}
+          {user.id && (
+            <Button
+              color="inherit"
+              onClick={handleLogout}
+              sx={{ mx: 1, fontSize: '0.875rem', textTransform: 'none' }}
+            >
+              Logout
+            </Button>
+          )}
           <IconButton
             size="large"
             color="inherit"

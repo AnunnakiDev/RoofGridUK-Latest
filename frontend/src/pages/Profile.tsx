@@ -3,8 +3,7 @@ import { Box, Typography, TextField, Button, Alert, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import api from '../services/api';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import PageLayout from '../components/PageLayout';
 
 const Profile: React.FC = () => {
   const { user, logout } = useUser();
@@ -57,31 +56,18 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-      }}
-    >
-      <Navbar />
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: { xs: 2, sm: 3 },
-          pt: { xs: '80px', sm: '100px' }, // Account for fixed Navbar
-        }}
-      >
-        <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1b75bc' }}>
-          Profile
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      {/* Content wrapped in PageLayout */}
+      <PageLayout>
+        <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold', color: '#1b75bc', textAlign: 'center' }}>
+          Account Details
         </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2, width: '100%', maxWidth: 400 }}>{success}</Alert>}
-        <Box sx={{ width: '100%', maxWidth: 400, mb: 4 }}>
+        <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary', textAlign: 'center' }}>
+          Welcome to your Account Details page. Here you can view your account information, including your email, role, and subscription status. You can also update your password to keep your account secure.
+        </Typography>
+        {error && <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 400, mx: 'auto' }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2, width: '100%', maxWidth: 400, mx: 'auto' }}>{success}</Alert>}
+        <Box sx={{ width: '100%', maxWidth: 400, mb: 4, mx: 'auto' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#1b75bc' }}>
             Account Information
           </Typography>
@@ -124,7 +110,7 @@ const Profile: React.FC = () => {
         <Box
           component="form"
           onSubmit={handleSubmit}
-          sx={{ width: '100%', maxWidth: 400 }}
+          sx={{ width: '100%', maxWidth: 400, mx: 'auto' }}
         >
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#1b75bc' }}>
             Change Password
@@ -171,8 +157,7 @@ const Profile: React.FC = () => {
             Change Password
           </Button>
         </Box>
-      </Box>
-      <Footer />
+      </PageLayout>
     </Box>
   );
 };

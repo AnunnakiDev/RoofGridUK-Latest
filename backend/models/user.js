@@ -1,8 +1,11 @@
-const { DataTypes } = require('sequelize');
-
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('user', {
-    username: {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
@@ -15,30 +18,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user',
-      validate: {
-        isIn: [['admin', 'user']], // Enforce valid values
-      },
     },
     subscription: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'basic',
-      validate: {
-        isIn: [['basic', 'pro']], // Enforce valid values
-      },
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true, // Validates email format
-      },
     },
   }, {
     tableName: 'user',
     timestamps: true,
   });
+
+  User.associate = (models) => {
+    User.hasMany(models.project, { foreignKey: 'userId' });
+    User.hasMany(models.userTile, { foreignKey: 'userId' });
+    User.hasMany(models.passwordResetToken, { foreignKey: 'userId' });
+  };
 
   return User;
 };

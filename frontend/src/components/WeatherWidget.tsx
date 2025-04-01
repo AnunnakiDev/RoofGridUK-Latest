@@ -16,56 +16,63 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ sx }) => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
-    // Check for cached weather data
+    console.log('WeatherWidget: Checking for cached weather data');
     const cached = localStorage.getItem('weatherCache');
     if (cached) {
       try {
         const { widget, forecast, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < 3600000) { // Cache for 1 hour
+          console.log('WeatherWidget: Using cached weather data', widget);
           setWeather(widget);
           setForecast(forecast);
           setIsLoading(false);
           return;
         }
       } catch (err) {
-        console.error('Failed to parse weather cache:', err);
+        console.error('WeatherWidget: Failed to parse weather cache:', err);
       }
     }
 
-    // Get user's location using Geolocation API
+    console.log('WeatherWidget: Requesting geolocation');
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          console.log('WeatherWidget: Geolocation success', { latitude, longitude });
           setUserLocation({ lat: latitude, lon: longitude });
         },
         (error) => {
-          console.error('Geolocation error:', error.message);
+          console.error('WeatherWidget: Geolocation error:', error.message);
           // Fallback to London coordinates if geolocation fails or is denied
           setUserLocation({ lat: 51.5014, lon: -0.1419 });
         },
         { timeout: 10000 }
       );
     } else {
-      console.error('Geolocation not supported by this browser');
+      console.error('WeatherWidget: Geolocation not supported by this browser');
       // Fallback to London coordinates if geolocation is not supported
       setUserLocation({ lat: 51.5014, lon: -0.1419 });
     }
   }, []);
 
   useEffect(() => {
-    if (!userLocation) return; // Wait until we have a location
+    if (!userLocation) {
+      console.log('WeatherWidget: Waiting for user location');
+      return;
+    }
 
-    setIsLoading(true); // Show loading state while fetching new data
+    console.log('WeatherWidget: Fetching weather data for location', userLocation);
+    setIsLoading(true);
     fetchWeatherData(userLocation.lat, userLocation.lon)
       .then(({ widget, forecast }) => {
+        console.log('WeatherWidget: Weather data fetched successfully', widget);
         setWeather(widget);
         setForecast(forecast);
         localStorage.setItem('weatherCache', JSON.stringify({ widget, forecast, timestamp: Date.now() }));
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error('Weather fetch failed:', err.message);
+        console.error('WeatherWidget: Weather fetch failed:', err.message);
         // Fallback data
         setWeather({
           icon: '01d',
@@ -87,10 +94,12 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ sx }) => {
   }, [userLocation]);
 
   const handleLocationChange = (lat: number, lon: number) => {
+    console.log('WeatherWidget: Location changed', { lat, lon });
     setUserLocation({ lat, lon });
   };
 
   if (isLoading) {
+    console.log('WeatherWidget: Rendering loading state');
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, ...sx }}>
         <Typography variant="body2" color="inherit">
@@ -100,16 +109,55 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ sx }) => {
     );
   }
 
+  if (!weather) {
+    console.log('WeatherWidget: No weather data available');
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, ...sx }}>
+        <Typography variant="body2" color="inherit">
+          Weather unavailable
+        </Typography>
+      </Box>
+    );
+  }
+
+  console.log('WeatherWidget: Rendering weather data', weather);
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, zIndex: 1200, ...sx }}>
-      <IconButton onClick={() => setShowForecast(!showForecast)} color="inherit" size="small">
-        <img
-          src={`/weather-icons/${weather?.icon}.png`}
-          alt="Weather icon"
-          style={{ width: 24, height: 24 }}
-        />
-        <Typography variant="body2" sx={{ ml: 0.5 }}>
-          {weather?.temp}°C | {weather?.location}
+    <Box
+      className="weather-widget"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        mr: 1,
+        zIndex: 1200,
+        visibility: 'visible',
+        opacity: 1,
+        ...sx,
+      }}
+    >
+      <IconButton
+        onClick={() => setShowForecast(!showForecast)}
+        color="inherit"
+        size="small"
+        sx={{ display: 'flex', alignItems: 'center' }}
+      >
+        {weather.icon ? (
+          <img
+            src={`/weather-icons/${weather.icon}.png`}
+            alt="Weather icon"
+            style={{ width: 24, height: 24 }}
+            onLoad={() => console.log('WeatherWidget: Weather icon loaded successfully', `/weather-icons/${weather.icon}.png`)}
+            onError={(e) => {
+              console.log('WeatherWidget: Weather icon failed to load', `/weather-icons/${weather.icon}.png`);
+              e.currentTarget.style.display = 'none';
+              const nextSibling = e.currentTarget.nextSibling as HTMLElement;
+              if (nextSibling) {
+                nextSibling.style.marginLeft = '0';
+              }
+            }}
+          />
+        ) : null}
+        <Typography variant="body2" sx={{ ml: 0.5, color: '#1b75bc' }}>
+          {weather.temp}°C | {weather.location}
         </Typography>
       </IconButton>
       {showForecast && forecast && (

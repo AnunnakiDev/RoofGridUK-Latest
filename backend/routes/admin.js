@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
 const { authenticateToken } = require('../middleware/auth');
-const { user, tile, userTile, project } = require('../db');
+const { user: User, project: Project, tile: Tile, userTile: UserTile } = require('../db');
+const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 
 // Middleware to ensure only admins can access these routes
@@ -13,83 +13,28 @@ const checkAdmin = (req, res, next) => {
   next();
 };
 
-// GET /stats - Fetch admin statistics (number of tiles, users, custom tiles, and projects)
-router.get('/stats', authenticateToken, checkAdmin, async (req, res) => {
-  try {
-    console.log('Fetching admin statistics for user:', req.user.id);
-
-    // Fetch number of default tiles
-    const tileCount = await tile.count();
-    console.log('Total default tiles in database:', tileCount);
-
-    // Fetch number of users
-    const userCount = await user.count();
-    console.log('Total users in database:', userCount);
-
-    // Fetch number of custom tiles (userTile)
-    const customTileCount = await userTile.count();
-    console.log('Total custom tiles in database:', customTileCount);
-
-    // Fetch number of saved projects
-    const projectCount = await project.count();
-    console.log('Total saved projects in database:', projectCount);
-
-    res.json({
-      tileCount,
-      userCount,
-      customTileCount,
-      projectCount,
-    });
-  } catch (error) {
-    console.error('Error fetching admin statistics:', error.message);
-    console.error('Stack trace:', error.stack);
-    res.status(500).json({ message: 'Error fetching admin statistics', error: error.message });
-  }
-});
-
-// GET /users - Fetch all users with pagination and search
+// GET /admin/users - Fetch all users
 router.get('/users', authenticateToken, checkAdmin, async (req, res) => {
   try {
-    console.log('Fetching users for admin:', req.user.id);
+    const { search } = req.query;
+    let whereClause = {};
+    if (search) {
+      whereClause = {
+        email: {
+          [Op.iLike]: `%${search}%`, // Case-insensitive search
+        },
+      };
+    }
 
-    // Get pagination and search parameters from query
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || '';
-    const offset = (page - 1) * limit;
-
-    // Build the where clause for search
-    const where = search
-      ? {
-          email: {
-            [Op.iLike]: `%${search}%`, // Case-insensitive search
-          },
-        }
-      : {};
-
-    // Fetch users with pagination and search
-    const { count, rows } = await user.findAndCountAll({
-      attributes: ['id', 'email', 'role', 'subscription'],
-      where,
-      limit,
-      offset,
-    });
-
-    console.log(`Returning ${rows.length} users for page ${page}, limit ${limit}, search: ${search}`);
-    res.json({
-      users: rows,
-      totalUsers: count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-    });
+    const users = await User.findAll({ where: whereClause });
+    res.json({ users });
   } catch (error) {
     console.error('Error fetching users:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error fetching users', error: error.message });
   }
 });
 
-// POST /users - Create a new user
+// POST /admin/users - Create a new user
 router.post('/users', authenticateToken, checkAdmin, async (req, res) => {
   const { email, password, role, subscription } = req.body;
 
@@ -101,33 +46,31 @@ router.post('/users', authenticateToken, checkAdmin, async (req, res) => {
       console.log('Validation failed: Missing required fields');
       return res.status(400).json({
         message: 'Missing required fields',
-        missing: { email: !email, password: !password, role: !role, subscription: !subscription },
+        missing: {
+          email: !email,
+          password: !password,
+          role: !role,
+          subscription: !subscription,
+        },
       });
     }
 
-    // Validate role and subscription values
-    if (!['admin', 'user'].includes(role)) {
-      console.log('Validation failed: Invalid role:', role);
-      return res.status(400).json({ message: 'Role must be "admin" or "user"' });
+    // Validate role value
+    if (!['user', 'admin'].includes(role)) {
+      console.log('Validation failed: Invalid role value:', role);
+      return res.status(400).json({ message: 'Role must be "user" or "admin"' });
     }
+
+    // Validate subscription value
     if (!['basic', 'pro'].includes(subscription)) {
-      console.log('Validation failed: Invalid subscription:', subscription);
+      console.log('Validation failed: Invalid subscription value:', subscription);
       return res.status(400).json({ message: 'Subscription must be "basic" or "pro"' });
     }
 
-    // Check if email already exists
-    const existingUser = await user.findOne({ where: { email } });
-    if (existingUser) {
-      console.log('Validation failed: Email already exists:', email);
-      return res.status(400).json({ message: 'Email already exists' });
-    }
-
     // Hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the new user
-    const newUser = await user.create({
+    const newUser = await User.create({
       email,
       password: hashedPassword,
       role,
@@ -135,17 +78,14 @@ router.post('/users', authenticateToken, checkAdmin, async (req, res) => {
     });
 
     console.log('Created new user successfully:', newUser.id);
-    // Return the new user without the password
-    const { password: _, ...userWithoutPassword } = newUser.toJSON();
-    res.status(201).json(userWithoutPassword);
+    res.status(201).json(newUser);
   } catch (error) {
     console.error('Error creating user:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error creating user', error: error.message });
   }
 });
 
-// PUT /users/:id - Update a user's role and subscription
+// PUT /admin/users/:id - Update a user
 router.put('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
   const { id } = req.params;
   const { role, subscription } = req.body;
@@ -158,35 +98,32 @@ router.put('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
       console.log('Validation failed: Missing required fields');
       return res.status(400).json({
         message: 'Missing required fields',
-        missing: { role: !role, subscription: !subscription },
+        missing: {
+          role: !role,
+          subscription: !subscription,
+        },
       });
     }
 
-    // Validate role and subscription values
-    if (!['admin', 'user'].includes(role)) {
-      console.log('Validation failed: Invalid role:', role);
-      return res.status(400).json({ message: 'Role must be "admin" or "user"' });
+    // Validate role value
+    if (!['user', 'admin'].includes(role)) {
+      console.log('Validation failed: Invalid role value:', role);
+      return res.status(400).json({ message: 'Role must be "user" or "admin"' });
     }
+
+    // Validate subscription value
     if (!['basic', 'pro'].includes(subscription)) {
-      console.log('Validation failed: Invalid subscription:', subscription);
+      console.log('Validation failed: Invalid subscription value:', subscription);
       return res.status(400).json({ message: 'Subscription must be "basic" or "pro"' });
     }
 
-    // Check if user exists
-    const existingUser = await user.findOne({ where: { id } });
+    const existingUser = await User.findOne({ where: { id } });
     if (!existingUser) {
       console.log('User not found:', id);
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Prevent an admin from modifying their own role or subscription
-    if (existingUser.id === req.user.id) {
-      console.log('Admin attempted to modify their own account:', req.user.id);
-      return res.status(403).json({ message: 'Cannot modify your own account' });
-    }
-
-    // Update the user
-    const updatedUser = await user.update(
+    const updatedUser = await User.update(
       { role, subscription },
       { where: { id }, returning: true }
     );
@@ -200,33 +137,24 @@ router.put('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
     res.json(updatedUser[1][0]);
   } catch (error) {
     console.error('Error updating user:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error updating user', error: error.message });
   }
 });
 
-// DELETE /users/:id - Delete a user
+// DELETE /admin/users/:id - Delete a user
 router.delete('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     console.log(`Received request to delete user ${id} by admin ${req.user.id}`);
 
-    // Check if user exists
-    const existingUser = await user.findOne({ where: { id } });
+    const existingUser = await User.findOne({ where: { id } });
     if (!existingUser) {
       console.log('User not found:', id);
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Prevent an admin from deleting their own account
-    if (existingUser.id === req.user.id) {
-      console.log('Admin attempted to delete their own account:', req.user.id);
-      return res.status(403).json({ message: 'Cannot delete your own account' });
-    }
-
-    // Delete the user
-    const result = await user.destroy({ where: { id } });
+    const result = await User.destroy({ where: { id } });
 
     if (result === 0) {
       console.log('User deletion failed, no rows affected:', id);
@@ -237,12 +165,11 @@ router.delete('/users/:id', authenticateToken, checkAdmin, async (req, res) => {
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error deleting user', error: error.message });
   }
 });
 
-// POST /users/bulk-delete - Delete multiple users
+// POST /admin/users/bulk-delete - Delete multiple users
 router.post('/users/bulk-delete', authenticateToken, checkAdmin, async (req, res) => {
   const { userIds } = req.body;
 
@@ -255,14 +182,8 @@ router.post('/users/bulk-delete', authenticateToken, checkAdmin, async (req, res
       return res.status(400).json({ message: 'userIds must be a non-empty array' });
     }
 
-    // Check if any of the users to delete is the admin themselves
-    if (userIds.includes(req.user.id)) {
-      console.log('Admin attempted to delete their own account:', req.user.id);
-      return res.status(403).json({ message: 'Cannot delete your own account' });
-    }
-
     // Check if all users exist
-    const existingUsers = await user.findAll({
+    const existingUsers = await User.findAll({
       where: { id: userIds },
     });
 
@@ -272,7 +193,7 @@ router.post('/users/bulk-delete', authenticateToken, checkAdmin, async (req, res
     }
 
     // Delete the users
-    const result = await user.destroy({
+    const result = await User.destroy({
       where: { id: userIds },
     });
 
@@ -285,8 +206,88 @@ router.post('/users/bulk-delete', authenticateToken, checkAdmin, async (req, res
     res.json({ message: `Successfully deleted ${result} users` });
   } catch (error) {
     console.error('Error during bulk delete:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error during bulk delete', error: error.message });
+  }
+});
+
+// POST /admin/users/bulk-import - Import multiple users from CSV
+router.post('/users/bulk-import', authenticateToken, checkAdmin, async (req, res) => {
+  const users = req.body;
+
+  try {
+    console.log(`Received request to bulk import users by admin ${req.user.id}:`, users);
+
+    // Validate request body
+    if (!Array.isArray(users) || users.length === 0) {
+      console.log('Validation failed: users must be a non-empty array');
+      return res.status(400).json({ message: 'Users must be a non-empty array' });
+    }
+
+    // Validate each user and hash passwords
+    for (const user of users) {
+      if (!user.email || !user.password || !user.role || !user.subscription) {
+        console.log('Validation failed: Missing required fields in user:', user);
+        return res.status(400).json({
+          message: 'Missing required fields in one or more users',
+          missing: {
+            email: !user.email,
+            password: !user.password,
+            role: !user.role,
+            subscription: !user.subscription,
+          },
+        });
+      }
+
+      // Validate role value
+      if (!['user', 'admin'].includes(user.role)) {
+        console.log('Validation failed: Invalid role value:', user.role);
+        return res.status(400).json({ message: 'Role must be "user" or "admin"' });
+      }
+
+      // Validate subscription value
+      if (!['basic', 'pro'].includes(user.subscription)) {
+        console.log('Validation failed: Invalid subscription value:', user.subscription);
+        return res.status(400).json({ message: 'Subscription must be "basic" or "pro"' });
+      }
+
+      // Hash the password
+      user.password = await bcrypt.hash(user.password, 10);
+    }
+
+    // Create users in the database
+    const createdUsers = await User.bulkCreate(users, { returning: true });
+    console.log(`Successfully imported ${createdUsers.length} users`);
+    res.status(201).json(createdUsers);
+  } catch (error) {
+    console.error('Error during bulk import:', error.message);
+    res.status(500).json({ message: 'Error during bulk import', error: error.message });
+  }
+});
+
+// GET /admin/stats - Fetch admin statistics
+router.get('/stats', authenticateToken, checkAdmin, async (req, res) => {
+  try {
+    // Total number of users
+    const userCount = await User.count();
+
+    // Total number of projects
+    const projectCount = await Project.count();
+
+    // Total number of default tiles
+    const tileCount = await Tile.count();
+
+    // Total number of custom tiles (user-specific tiles via userTile)
+    const customTileCount = await UserTile.count();
+
+    res.json({
+      userCount,
+      projectCount,
+      tileCount,
+      customTileCount,
+    });
+  } catch (error) {
+    console.error('Error fetching admin statistics:', error.message);
+    res.status(500).json({ message: 'Failed to fetch admin statistics', error: error.message });
   }
 });
 
