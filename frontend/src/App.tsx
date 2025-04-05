@@ -4,7 +4,9 @@ import { UserProvider } from './context/UserContext';
 import { WeatherProvider } from './context/WeatherContext';
 import { useUser } from './context/UserContext';
 import Home from './pages/Home';
-import Calculator from './pages/Calculator';
+import MainCalculator from './components/MainCalculator'; // Updated import
+import TileDataEntry from './components/TileDataEntry'; // New import
+// import ResultsPage from './components/ResultsPage'; // Commented out until provided
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -57,7 +59,12 @@ const App: React.FC = () => {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/calculator" element={<Calculator />} />
+            {/* Updated Calculator Route with Nested Routes */}
+            <Route path="/calculator">
+              <Route index element={<MainCalculator />} /> {/* Updated to MainCalculator */}
+              <Route path="tile-data" element={<TileDataEntry />} /> {/* New route */}
+              {/* <Route path="results" element={<ResultsPage />} /> Commented out until ResultsPage.tsx is provided */}
+            </Route>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
